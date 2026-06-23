@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="D.I.S.C.O Score" />
+<meta name="theme-color" content="#050506" />
+<title>D.I.S.C.O Battle Score</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#050506">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="D.I.S.C.O">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap');
+
+:root{
+  --bg:#050506;--line:rgba(255,255,255,.14);--text:#f7f7f7;--muted:#9b9aaa;
+  --lime:#eaff5c;--mint:#92ffe6;--purple:#8d5cff;--pink:#ff46d4;--danger:#ff5c78;
+  --r:26px;--shadow:0 24px 80px rgba(0,0,0,.55);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text)}
+body{
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Pretendard","Noto Sans KR",sans-serif;
+  background:radial-gradient(circle at 18% 8%,rgba(141,92,255,.25),transparent 30%),
+  radial-gradient(circle at 84% 92%,rgba(255,70,212,.18),transparent 32%),
+  linear-gradient(135deg,#050506,#0c0710 55%,#050506);
+}
+button,input,select{font:inherit}button{cursor:pointer;border:0}
+.app{width:min(1100px,100%);min-height:100dvh;margin:0 auto;padding:20px}
+.screen{display:none;min-height:calc(100dvh - 40px)}.screen.active{display:flex;flex-direction:column}
+.center{align-items:center;justify-content:center;text-align:center}
+.hero{width:100%;min-height:calc(100dvh - 40px);display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:36px;background:rgba(255,255,255,.035);box-shadow:var(--shadow);position:relative;overflow:hidden;padding:24px}
+.hero:before{content:"";position:absolute;inset:0;opacity:.12;background:linear-gradient(90deg,transparent 49%,#fff 50%,transparent 51%),linear-gradient(0deg,transparent 49%,#fff 50%,transparent 51%);background-size:54px 54px}
+.hero-inner{position:relative;z-index:2;width:100%}
+.logo{margin:0;font-family:'Archivo Black',Impact,sans-serif;font-size:clamp(58px,16vw,164px);line-height:.88;letter-spacing:.04em;text-shadow:0 0 34px rgba(234,255,92,.32),5px 5px 0 rgba(141,92,255,.85)}
+.subtitle{margin:20px 0 28px;color:rgba(255,255,255,.65);font-weight:900;letter-spacing:.3em;font-size:12px}
+.btn{min-height:56px;padding:15px 24px;border-radius:999px;background:linear-gradient(135deg,var(--lime),var(--mint));color:#050506;font-weight:1000;letter-spacing:.04em;box-shadow:0 16px 42px rgba(146,255,230,.16)}
+.btn.big{min-width:190px;min-height:70px;font-size:23px}.btn.ghost{background:rgba(255,255,255,.075);color:#fff;border:1px solid var(--line);box-shadow:none}.btn.small{min-height:40px;padding:10px 15px;font-size:12px}
+.admin-enter{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);z-index:3;opacity:.82}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.title{margin:0;font-family:'Archivo Black',Impact,sans-serif;font-size:clamp(28px,6vw,54px);line-height:1;text-shadow:3px 3px 0 rgba(141,92,255,.75)}
+.card{background:linear-gradient(180deg,rgba(255,255,255,.075),rgba(255,255,255,.035));border:1px solid var(--line);border-radius:var(--r);padding:20px;margin:10px 0;box-shadow:var(--shadow)}
+.hint{color:var(--muted);font-size:13px;line-height:1.55}
+label{display:block;margin:0 0 8px;color:rgba(255,255,255,.65);font-size:12px;font-weight:1000;letter-spacing:.08em}
+input,select{width:100%;min-height:55px;border-radius:17px;border:1px solid var(--line);background:rgba(0,0,0,.38);color:#fff;padding:14px 15px;outline:0;font-weight:850}
+input:focus,select:focus{border-color:var(--mint);box-shadow:0 0 0 4px rgba(146,255,230,.12)}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.full{grid-column:1/-1}
+.mode-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.mode{border:1px solid var(--line);border-radius:22px;padding:18px;background:rgba(0,0,0,.25);text-align:left}.mode.active{background:linear-gradient(135deg,rgba(234,255,92,.2),rgba(146,255,230,.13));border-color:rgba(234,255,92,.55)}
+.mode b{display:block;font-size:18px;margin-bottom:7px}.mode span{color:var(--muted);font-size:13px;line-height:1.45}
+.upload{border:1.5px dashed rgba(255,255,255,.25);border-radius:24px;background:rgba(0,0,0,.25);padding:24px;text-align:center}.upload input{display:none}
+.list{border:1px solid var(--line);border-radius:21px;overflow:auto;max-height:340px}table{width:100%;border-collapse:collapse;min-width:720px;font-size:14px}th,td{padding:12px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}th{position:sticky;top:0;background:#111117;color:rgba(255,255,255,.55);font-size:12px;letter-spacing:.08em}.empty{padding:20px;text-align:center;color:var(--muted)}
+.circle-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:10px}.circle-btn{min-width:128px}.login-card{max-width:380px;width:100%;text-align:left}.login-error{min-height:20px;margin-top:8px;color:var(--danger);font-size:13px;font-weight:900}
+.judge-tabs{display:flex;gap:8px;overflow:auto;padding-bottom:8px}.judge-tab{flex:0 0 auto;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.07);color:#aaa;padding:11px 16px;font-weight:900}.judge-tab.active{background:linear-gradient(135deg,var(--lime),var(--mint));color:#050506;border-color:transparent}
+.progress{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin-bottom:16px}.bar{height:100%;width:0;background:linear-gradient(90deg,var(--lime),var(--mint),var(--purple))}
+.dancer-card{text-align:center}.meta{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:13px}.badge,.circle-chip{border:1px solid var(--line);border-radius:999px;background:rgba(0,0,0,.34);padding:8px 12px;color:rgba(255,255,255,.75);font-size:12px;font-weight:1000;letter-spacing:.07em}.circle-chip{display:inline-block;margin-top:8px;background:linear-gradient(135deg,rgba(234,255,92,.18),rgba(146,255,230,.12))}
+.dancer-name{font-family:'Archivo Black',Impact,sans-serif;font-size:clamp(40px,10vw,88px);line-height:.98;margin:8px 0 4px;text-shadow:3px 3px 0 rgba(141,92,255,.75)}
+.battle-name{min-height:22px;color:rgba(255,255,255,.58);font-size:13px;letter-spacing:.12em;font-weight:900;text-transform:uppercase}
+.score-display{width:min(460px,100%);min-height:100px;margin:20px auto 14px;border-radius:28px;border:1px solid rgba(255,255,255,.16);background:#07070b;display:flex;align-items:center;justify-content:center;font-family:'Archivo Black',Impact,sans-serif;font-size:62px}
+.keypad{width:min(460px,100%);margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.key{min-height:74px;border-radius:22px;background:linear-gradient(180deg,rgba(255,255,255,.11),rgba(255,255,255,.04));color:#fff;border:1px solid var(--line);font-family:'Archivo Black',Impact,sans-serif;font-size:32px}.key.func{font-family:system-ui,sans-serif;font-size:16px}.key.ok{background:linear-gradient(135deg,var(--lime),var(--mint));color:#050506}.key.wide{grid-column:span 2}
+.next-wrap{height:78px;display:flex;justify-content:center;align-items:center;margin-top:12px}.hidden{display:none!important}
+.result-board{background:#07070a;color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:28px;padding:24px;box-shadow:var(--shadow);max-width:860px;margin:0 auto}
+.result-head{text-align:center;margin-bottom:18px}.result-logo{font-family:'Archivo Black',Impact,sans-serif;font-size:48px;letter-spacing:.04em;text-shadow:3px 3px 0 rgba(141,92,255,.8)}.result-sub{color:var(--muted);font-size:13px;font-weight:900;letter-spacing:.12em;margin-top:7px}
+.result-item{display:grid;grid-template-columns:68px 1fr auto auto;gap:13px;align-items:center;padding:14px 12px;border-bottom:1px solid rgba(255,255,255,.13)}.rank,.score,.avg{font-family:'Archivo Black',Impact,sans-serif;font-size:27px;color:var(--lime)}.score,.avg{color:#fff;font-size:25px}.name{font-size:18px;font-weight:1000}.sub{font-size:13px;color:var(--muted);margin-top:4px}.tie-note{color:var(--lime);font-size:12px;font-weight:1000;margin-top:3px}
+.upload-board .score,.upload-board .avg,.upload-board .score-line{display:none!important}
+.upload-board{position:absolute;left:-99999px;top:0;width:860px}
+.history-item{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:14px;border-bottom:1px solid var(--line)}
+.footer-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:16px}
+@media(max-width:760px){.app{padding:14px}.screen{min-height:calc(100dvh - 28px)}.hero{min-height:calc(100dvh - 28px);border-radius:30px}.grid,.grid3,.mode-row{grid-template-columns:1fr}.card{padding:16px;border-radius:24px}.key{min-height:70px}.result-item{grid-template-columns:54px 1fr auto}.avg{display:none}.result-logo{font-size:38px}}
+
+/* ===== PHONE / TABLET / PC RESPONSIVE PATCH ===== */
+html, body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  touch-action: manipulation;
+}
+button, input, select, textarea {
+  font-size: 16px;
+}
+button {
+  user-select: none;
+}
+.screen {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.app {
+  width: min(1100px, 100%);
+}
+
+/* Tablet */
+@media (min-width:761px) and (max-width:1024px) {
+  .app {
+    padding: 18px;
+  }
+  .hero {
+    min-height: calc(100dvh - 36px);
+  }
+  .logo {
+    font-size: clamp(84px, 14vw, 150px);
+  }
+  .card {
+    padding: 20px;
+  }
+  .score-display {
+    width: min(560px, 100%);
+    min-height: 112px;
+    font-size: 72px;
+  }
+  .keypad {
+    width: min(560px, 100%);
+    gap: 12px;
+  }
+  .key {
+    min-height: 86px;
+    font-size: 38px;
+  }
+  .dancer-name {
+    font-size: clamp(62px, 11vw, 108px);
+  }
+  .result-board {
+    max-width: 900px;
+  }
+}
+
+/* Phone */
+@media (max-width:760px) {
+  .app {
+    width: 100%;
+    padding: 10px;
+  }
+  .screen {
+    min-height: calc(100dvh - 20px);
+  }
+  .hero {
+    min-height: calc(100dvh - 20px);
+    border-radius: 24px;
+    padding: 18px 12px;
+  }
+  .logo {
+    font-size: clamp(50px, 18vw, 92px);
+    letter-spacing: .025em;
+    text-shadow: 0 0 24px rgba(234,255,92,.28), 3px 3px 0 rgba(141,92,255,.85);
+  }
+  .subtitle {
+    font-size: 10px;
+    letter-spacing: .22em;
+    margin: 16px 0 22px;
+  }
+  .admin-enter {
+    bottom: 14px;
+  }
+  .topbar {
+    align-items: flex-start;
+    margin-bottom: 10px;
+  }
+  .title {
+    font-size: clamp(25px, 9vw, 38px);
+  }
+  .card {
+    margin: 8px 0;
+    padding: 14px;
+    border-radius: 22px;
+  }
+  .mode {
+    padding: 15px;
+  }
+  .mode b {
+    font-size: 16px;
+  }
+  .mode span,
+  .hint {
+    font-size: 12px;
+  }
+  .btn {
+    min-height: 52px;
+    padding: 13px 18px;
+  }
+  .btn.big {
+    min-width: 150px;
+    min-height: 62px;
+    font-size: 20px;
+  }
+  .btn.small {
+    min-height: 38px;
+    padding: 9px 12px;
+    font-size: 11px;
+  }
+  .grid,
+  .grid3,
+  .mode-row {
+    grid-template-columns: 1fr !important;
+  }
+  .circle-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    width: 100%;
+  }
+  .circle-btn {
+    min-width: 0;
+    width: 100%;
+  }
+  .upload {
+    padding: 18px 12px;
+  }
+  .list {
+    max-height: 310px;
+    border-radius: 18px;
+  }
+  table {
+    min-width: 560px;
+    font-size: 13px;
+  }
+  th, td {
+    padding: 10px 9px;
+  }
+  .judge-tabs {
+    margin: 0 -2px;
+    padding-bottom: 7px;
+  }
+  .judge-tab {
+    padding: 10px 13px;
+    font-size: 12px;
+  }
+  .progress {
+    height: 7px;
+    margin-bottom: 9px;
+  }
+  .dancer-card {
+    padding: 13px 10px 10px;
+  }
+  .meta {
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .badge,
+  .circle-chip {
+    padding: 7px 9px;
+    font-size: 10.5px;
+  }
+  .dancer-name {
+    font-size: clamp(42px, 16vw, 72px);
+    line-height: .95;
+    margin: 6px 0 2px;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  .battle-name {
+    font-size: 11px;
+    min-height: 18px;
+    letter-spacing: .09em;
+  }
+  .score-display {
+    width: 100%;
+    min-height: 86px;
+    margin: 13px auto 10px;
+    border-radius: 22px;
+    font-size: 54px;
+  }
+  .keypad {
+    width: 100%;
+    gap: 8px;
+  }
+  .key {
+    min-height: 62px;
+    border-radius: 18px;
+    font-size: 28px;
+  }
+  .key.func {
+    font-size: 14px;
+  }
+  .next-wrap {
+    height: 64px;
+    margin-top: 8px;
+  }
+  .footer-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    background: linear-gradient(180deg,rgba(5,5,6,0),rgba(5,5,6,.94) 18%,rgba(5,5,6,.98));
+    padding: 12px 4px calc(12px + env(safe-area-inset-bottom));
+    margin: 8px -4px -8px;
+  }
+  #score .footer-actions .btn {
+    flex: 1 1 30%;
+    min-width: 0;
+    padding-left: 10px;
+    padding-right: 10px;
+    font-size: 12px;
+  }
+  .result-board {
+    width: 100%;
+    padding: 16px 10px;
+    border-radius: 22px;
+  }
+  .result-logo {
+    font-size: 34px;
+  }
+  .result-sub {
+    font-size: 11px;
+    letter-spacing: .08em;
+  }
+  .result-item {
+    grid-template-columns: 48px 1fr;
+    gap: 10px;
+    padding: 13px 4px;
+  }
+  .result-item .score,
+  .result-item .avg {
+    grid-column: 2;
+    justify-self: start;
+    font-size: 18px;
+    margin-right: 8px;
+  }
+  .rank {
+    font-size: 24px;
+  }
+  .name {
+    font-size: 16px;
+  }
+  .sub {
+    font-size: 11.5px;
+    white-space: normal;
+  }
+  .upload-board {
+    width: 390px;
+  }
+  .history-item {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+
+/* Small phone */
+@media (max-width:420px) {
+  .circle-grid {
+    grid-template-columns: 1fr;
+  }
+  .key {
+    min-height: 60px;
+  }
+  .score-display {
+    min-height: 82px;
+  }
+  #results .footer-actions .btn,
+  #admin .footer-actions .btn {
+    flex: 1 1 45%;
+    min-width: 140px;
+  }
+}
+
+
+/* ===== D.I.S.C.O NEON DISCO DESIGN V2 ===== */
+:root{
+  --bg:#02030a;
+  --panel:#070814;
+  --panel2:#10111f;
+  --line:rgba(255,255,255,.13);
+  --lineHot:rgba(255,57,169,.5);
+  --text:#f9f7ff;
+  --muted:#8b8fa3;
+  --pink:#ff3ca8;
+  --pink2:#ff67c8;
+  --blue:#3156ff;
+  --cyan:#43d7ff;
+  --purple:#7c3cff;
+  --gold:#ffd166;
+  --danger:#ff5c78;
+  --r:22px;
+  --shadow:0 30px 90px rgba(0,0,0,.65);
+}
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{
+  width:100%;
+  max-width:100%;
+  overflow-x:hidden;
+  background:#02030a;
+}
+body{
+  color:var(--text);
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Pretendard","Noto Sans KR",sans-serif;
+  background:
+    radial-gradient(circle at 22% 0%, rgba(49,86,255,.34), transparent 24%),
+    radial-gradient(circle at 72% 18%, rgba(255,60,168,.26), transparent 26%),
+    radial-gradient(circle at 50% 100%, rgba(124,60,255,.22), transparent 35%),
+    linear-gradient(180deg,#01020a,#050510 45%,#090413);
+}
+body:before{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  opacity:.18;
+  background:
+    linear-gradient(90deg,transparent 0 49%,rgba(67,215,255,.35) 50%,transparent 51%),
+    linear-gradient(0deg,transparent 0 49%,rgba(255,60,168,.24) 50%,transparent 51%);
+  background-size:54px 54px;
+  mask-image:radial-gradient(circle at 50% 10%,black,transparent 65%);
+}
+.app{
+  width:min(1180px,100%);
+  padding:22px;
+}
+.screen{
+  min-height:calc(100dvh - 44px);
+}
+.hero{
+  min-height:calc(100dvh - 44px);
+  border-radius:34px;
+  border:1px solid rgba(255,60,168,.28);
+  background:
+    radial-gradient(circle at 50% 20%, rgba(67,215,255,.12), transparent 26%),
+    linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.025)),
+    #050611;
+  box-shadow:
+    0 0 0 1px rgba(49,86,255,.20) inset,
+    0 0 55px rgba(255,60,168,.12),
+    var(--shadow);
+}
+.hero:before{
+  opacity:.28;
+  background:
+    radial-gradient(circle at 50% 36%, rgba(67,215,255,.35), transparent 0 2px, transparent 3px),
+    linear-gradient(90deg,transparent 49%,rgba(255,255,255,.10) 50%,transparent 51%),
+    linear-gradient(0deg,transparent 49%,rgba(255,255,255,.08) 50%,transparent 51%);
+  background-size:18px 18px,58px 58px,58px 58px;
+}
+.hero:after{
+  content:"";
+  position:absolute;
+  width:min(560px,88vw);
+  height:min(560px,88vw);
+  top:8%;
+  left:50%;
+  transform:translateX(-50%);
+  border-radius:50%;
+  background:
+    radial-gradient(circle at 35% 22%,rgba(255,255,255,.95),transparent 0 4px,transparent 5px),
+    radial-gradient(circle at 68% 18%,rgba(255,60,168,.85),transparent 0 3px,transparent 4px),
+    radial-gradient(circle at 45% 70%,rgba(67,215,255,.8),transparent 0 2px,transparent 3px),
+    linear-gradient(135deg,rgba(67,215,255,.46),rgba(255,60,168,.24) 45%,rgba(5,5,20,.1) 65%),
+    #050711;
+  opacity:.45;
+  box-shadow:0 0 80px rgba(67,215,255,.24), inset 0 0 80px rgba(255,60,168,.14);
+  mask-image:radial-gradient(circle,black 0 59%,transparent 61%);
+}
+.hero-inner{
+  position:relative;
+  z-index:3;
+}
+.logo{
+  color:transparent;
+  font-family:'Archivo Black',Impact,sans-serif;
+  letter-spacing:.055em;
+  -webkit-text-stroke:2px var(--pink2);
+  text-shadow:
+    0 0 8px rgba(255,60,168,.92),
+    0 0 24px rgba(255,60,168,.72),
+    0 0 46px rgba(49,86,255,.55);
+}
+.subtitle{
+  color:#fff;
+  letter-spacing:.38em;
+  text-shadow:0 0 14px rgba(255,255,255,.65);
+}
+.btn{
+  background:linear-gradient(135deg,#ff3ca8 0%,#b02bff 46%,#3156ff 100%);
+  color:#fff;
+  box-shadow:0 18px 46px rgba(255,60,168,.22),0 0 24px rgba(49,86,255,.16);
+  border:1px solid rgba(255,255,255,.13);
+}
+.btn.ghost{
+  background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.035));
+  border:1px solid rgba(255,60,168,.28);
+  color:#fff;
+  box-shadow:none;
+}
+.btn:hover{
+  filter:brightness(1.07);
+}
+.title{
+  color:transparent;
+  -webkit-text-stroke:1px var(--pink2);
+  text-shadow:0 0 14px rgba(255,60,168,.8),0 0 28px rgba(49,86,255,.45);
+}
+.card,.result-board{
+  border-radius:26px;
+  border:1px solid rgba(255,60,168,.24);
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.075),rgba(255,255,255,.032)),
+    radial-gradient(circle at 10% 0%,rgba(49,86,255,.12),transparent 35%),
+    #070814;
+  box-shadow:
+    0 0 0 1px rgba(67,215,255,.06) inset,
+    0 18px 58px rgba(0,0,0,.55),
+    0 0 40px rgba(255,60,168,.08);
+}
+.mode{
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(0,0,0,.28);
+}
+.mode.active{
+  border-color:rgba(255,60,168,.72);
+  background:linear-gradient(135deg,rgba(255,60,168,.24),rgba(49,86,255,.18));
+  box-shadow:0 0 26px rgba(255,60,168,.13) inset;
+}
+input,select{
+  background:rgba(0,0,0,.38);
+  border:1px solid rgba(255,255,255,.13);
+}
+input:focus,select:focus{
+  border-color:var(--pink);
+  box-shadow:0 0 0 4px rgba(255,60,168,.13),0 0 20px rgba(49,86,255,.16);
+}
+.upload{
+  border-color:rgba(255,60,168,.35);
+  background:rgba(0,0,0,.23);
+}
+.list{
+  border-color:rgba(255,60,168,.22);
+}
+th{
+  background:#070814;
+  color:#acb4d2;
+}
+td{
+  border-bottom-color:rgba(255,255,255,.10);
+}
+.judge-tab{
+  border-color:rgba(255,60,168,.26);
+  background:rgba(255,255,255,.055);
+}
+.judge-tab.active{
+  background:linear-gradient(135deg,#ff3ca8,#3156ff);
+  color:#fff;
+  box-shadow:0 0 22px rgba(255,60,168,.22);
+}
+.bar{
+  background:linear-gradient(90deg,#ff3ca8,#7c3cff,#43d7ff);
+}
+.badge,.circle-chip{
+  border-color:rgba(255,60,168,.28);
+  background:rgba(0,0,0,.35);
+}
+.dancer-name{
+  color:#fff;
+  text-shadow:0 0 20px rgba(255,60,168,.72),3px 3px 0 rgba(49,86,255,.7);
+}
+.battle-name{
+  color:#b9bed4;
+}
+.score-display{
+  background:
+    radial-gradient(circle at 50% 0%,rgba(255,60,168,.12),transparent 60%),
+    #03040c;
+  border-color:rgba(255,60,168,.28);
+  color:#fff;
+  box-shadow:inset 0 0 28px rgba(49,86,255,.20),0 0 34px rgba(255,60,168,.10);
+}
+.key{
+  background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.03)),#090a14;
+  border-color:rgba(255,60,168,.18);
+  color:#fff;
+}
+.key.ok{
+  background:linear-gradient(135deg,#ff3ca8,#3156ff);
+  color:#fff;
+}
+.result-logo{
+  color:transparent;
+  -webkit-text-stroke:1.5px var(--pink2);
+  text-shadow:0 0 14px rgba(255,60,168,.9),0 0 26px rgba(49,86,255,.55);
+}
+.rank{
+  color:#ffcc4d;
+}
+.score,.avg{
+  color:#fff;
+}
+.tie-note{
+  color:#43d7ff;
+}
+.admin-enter{
+  border-color:rgba(255,60,168,.35);
+}
+.footer-actions{
+  backdrop-filter:blur(10px);
+}
+
+/* Phone/tablet polish */
+@media(max-width:760px){
+  .app{padding:10px}
+  .hero{
+    border-radius:26px;
+    min-height:calc(100dvh - 20px);
+  }
+  .hero:after{
+    width:86vw;
+    height:86vw;
+    top:10%;
+    opacity:.36;
+  }
+  .logo{
+    font-size:clamp(52px,17vw,92px);
+    -webkit-text-stroke:1.3px var(--pink2);
+  }
+  .subtitle{
+    font-size:10px;
+    letter-spacing:.22em;
+  }
+  .card,.result-board{
+    border-radius:22px;
+  }
+  .circle-grid{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:10px;
+    width:100%;
+  }
+  .circle-btn{
+    width:100%;
+    min-width:0;
+  }
+  .score-display{
+    min-height:88px;
+    font-size:54px;
+  }
+  .key{
+    min-height:62px;
+    border-radius:18px;
+  }
+}
+@media(max-width:420px){
+  .circle-grid{
+    grid-template-columns:1fr;
+  }
+}
+
+
+/* ===== TABLET SCORING LAYOUT PATCH ===== */
+@media (min-width:761px) {
+  #score.screen {
+    min-height: calc(100dvh - 44px);
+  }
+  #score .topbar {
+    margin-bottom: 10px;
+  }
+  #score .title {
+    font-size: clamp(46px, 6.5vw, 82px);
+  }
+  #score .card.dancer-card {
+    max-width: none;
+    width: 100%;
+    padding: 18px 26px 20px;
+    margin-top: 8px;
+  }
+  #score .dancer-name {
+    font-size: clamp(72px, 9vw, 128px);
+    line-height: .9;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    font-style: italic;
+    color: transparent;
+    -webkit-text-stroke: 2px #ff67c8;
+    text-shadow:
+      0 0 12px rgba(255,60,168,.95),
+      0 0 26px rgba(255,60,168,.72),
+      0 0 38px rgba(49,86,255,.65);
+  }
+  #score .battle-name {
+    font-size: 24px;
+    letter-spacing: .04em;
+    color: rgba(255,255,255,.78);
+    margin-top: 4px;
+    margin-bottom: 12px;
+  }
+  #score .score-display {
+    width: 100%;
+    max-width: none;
+    min-height: 96px;
+    font-size: 66px;
+    margin: 12px auto 14px;
+  }
+  #score .keypad {
+    width: 100%;
+    max-width: none;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  #score .key {
+    min-height: clamp(68px, 7.2vh, 92px);
+    font-size: clamp(34px, 4.3vw, 52px);
+    border-radius: 20px;
+  }
+  #score .key.func {
+    font-size: clamp(17px, 2vw, 22px);
+  }
+  #score .key.ok {
+    font-size: clamp(30px, 4vw, 48px);
+  }
+  #score .next-wrap {
+    height: 18px;
+    min-height: 0;
+    margin-top: 0;
+  }
+  #score #nextBtn {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 50;
+  }
+  #score .footer-actions {
+    margin-top: 14px;
+    padding-bottom: 10px;
+  }
+  #score .footer-actions .btn {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
+@media (min-width:761px) and (max-width:1180px) {
+  #score .app, .app {
+    max-width: 100%;
+  }
+  #score .key {
+    min-height: 74px;
+  }
+}
+
+/* phone은 영어 배틀네임 크게 유지하되 화면 넘침 방지 */
+@media (max-width:760px) {
+  #score .dancer-name {
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  #score .battle-name {
+    font-size: 13px;
+    letter-spacing: .04em;
+  }
+}
+
+</style>
+</head>
+<body>
+<main class="app">
+<section id="home" class="screen active center">
+  <div class="hero">
+    <div class="hero-inner">
+      <h1 class="logo">D.I.S.C.O</h1>
+      <div class="subtitle">PRELIM SCORE SYSTEM</div>
+      <div class="hint" style="font-weight:900;letter-spacing:.08em;margin-bottom:14px">채점할 서클을 선택해줘</div>
+      <div id="homeCircleButtons" class="circle-grid"></div>
+    </div>
+    <button class="btn ghost small admin-enter" onclick="requireLogin('admin')">ADMIN MODE</button>
+  </div>
+</section>
+
+<section id="login" class="screen center">
+  <div class="card login-card">
+    <div class="topbar"><h2 class="title" style="font-size:30px">LOGIN</h2><button class="btn ghost small" onclick="cancelLogin()">HOME</button></div>
+    <p id="loginGuide" class="hint">처음 실행이면 관리자 이름과 PIN을 직접 만들어줘.</p>
+    <label id="loginIdLabel">ADMIN NAME</label><input id="loginId" type="text" autocomplete="off" placeholder="예: SOMUCH">
+    <div style="height:14px"></div>
+    <label id="loginPwLabel">PIN</label><input id="loginPw" type="password" inputmode="numeric" autocomplete="off" placeholder="4자리 이상" onkeydown="if(event.key==='Enter') attemptLogin()">
+    <div id="loginError" class="login-error"></div>
+    <button id="loginButton" class="btn big" style="width:100%;margin-top:10px" type="button" onclick="attemptLogin()">CREATE & LOGIN</button>
+<button id="resetPinButton" class="btn ghost" style="width:100%;margin-top:10px;display:none" type="button" onclick="resetPin()">PIN RESET</button>
+  </div>
+</section>
+
+<section id="admin" class="screen">
+  <div class="topbar">
+    <h2 class="title">ADMIN SETUP</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn ghost small" onclick="go('mypage')">MY PAGE</button>
+      <button class="btn ghost small" onclick="logout()">LOGOUT</button>
+      <button class="btn ghost small" onclick="go('home')">HOME</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <label>SCORE TYPE</label>
+    <div class="mode-row">
+      <div id="typeCircle" class="mode active" onclick="setScoreType('circle')"><b>1. 한 져지 / 한 서클 TOP</b><span>져지 1명이 선택한 서클만 심사하고 그 서클 TOP 랭킹을 만듭니다.</span></div>
+      <div id="typeAll" class="mode" onclick="setScoreType('all')"><b>2. 여러 져지 / 전체 합산·평균 TOP</b><span>져지 1,2,3...이 모든 서클을 심사하고 합산/평균 TOP 랭킹을 만듭니다.</span></div>
+    </div>
+  </div>
+
+  <div class="card grid3">
+    <div><label>CIRCLE COUNT A~Z</label><input id="circleCount" type="number" min="1" max="26" value="3" oninput="syncSettings();renderHomeCircles();renderPreview();saveCurrentEvent()"></div>
+    <div><label>JUDGE COUNT</label><input id="judgeCount" type="number" min="1" value="3" oninput="syncSettings();saveCurrentEvent()"></div>
+    <div><label>TOP ?</label><input id="topCount" type="number" min="1" value="6" oninput="syncSettings();saveCurrentEvent()"></div>
+    <div class="full"><label>EVENT NAME</label><input id="eventName" type="text" value="D.I.S.C.O" oninput="syncSettings();saveCurrentEvent()"></div>
+    <div class="full hint">서클 개수 3이면 A/B/C, 26이면 A~Z까지 생성됩니다.</div>
+  </div>
+
+  <div class="card">
+    <label>PARTICIPANT FILE</label>
+    <div class="upload">
+      <p style="margin:0 0 10px;font-weight:900;font-size:18px">엑셀 / CSV 참가자 파일 업로드</p>
+      <p class="hint" style="margin:0 0 16px">한글 CSV 깨짐 방지 포함. A-1, A-나-1, B-1 같은 순서를 자동 인식합니다.</p>
+      <label class="btn ghost" for="fileInput">FILE SELECT</label>
+      <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" onchange="handleFile(event)">
+      <div id="fileName" class="hint" style="margin-top:13px">아직 파일 없음</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="topbar"><h3 style="margin:0;font-size:18px">참가자 순서 미리보기</h3><button class="btn ghost small" onclick="loadSample()">SAMPLE</button></div>
+    <div class="list"><table><thead><tr><th>ORDER</th><th>CIRCLE</th><th>NAME</th><th>BATTLE NAME</th></tr></thead><tbody id="previewBody"></tbody></table></div>
+  </div>
+
+  <div class="footer-actions"><button class="btn ghost" onclick="resetScores()">RESET SCORE</button><button class="btn big" onclick="startScoring()">START</button></div>
+</section>
+
+<section id="score" class="screen">
+  <div class="topbar">
+    <div><h2 id="scoreTitle" class="title">D.I.S.C.O SCORE</h2><span id="circleTag" class="circle-chip">CIRCLE -</span></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn ghost small" onclick="go('home')">CIRCLE</button><button class="btn ghost small" onclick="requireLogin('admin')">ADMIN</button></div>
+  </div>
+  <div class="judge-tabs" id="judgeTabs"></div><div class="progress"><div id="bar" class="bar"></div></div>
+  <div class="card dancer-card">
+    <div class="meta"><span id="orderBadge" class="badge">ORDER -</span><span id="circleBadge" class="badge">CIRCLE -</span><span id="judgeBadge" class="badge">JUDGE 1</span></div>
+    <div id="dancerName" class="dancer-name">NO DANCER</div><div id="battleName" class="battle-name">LOAD PARTICIPANTS IN ADMIN MODE</div>
+    <div id="scoreDisplay" class="score-display">0</div>
+    <div class="keypad">
+      <button class="key" onclick="tap('1')">1</button><button class="key" onclick="tap('2')">2</button><button class="key" onclick="tap('3')">3</button>
+      <button class="key" onclick="tap('4')">4</button><button class="key" onclick="tap('5')">5</button><button class="key" onclick="tap('6')">6</button>
+      <button class="key" onclick="tap('7')">7</button><button class="key" onclick="tap('8')">8</button><button class="key" onclick="tap('9')">9</button>
+      <button class="key" onclick="tap('.')">.</button><button class="key" onclick="tap('0')">0</button><button class="key func" onclick="backspace()">⌫</button>
+      <button class="key wide func" onclick="clearScore()">CLEAR</button><button class="key ok" onclick="saveAndNext()">OK</button>
+    </div>
+    <div class="next-wrap"><button id="nextBtn" class="btn big hidden" onclick="nextDancer()">NEXT</button></div>
+  </div>
+  <div class="footer-actions">
+    <button class="btn ghost" onclick="prevDancer()">PREV / 이전 댄서 수정</button>
+    <button class="btn ghost" onclick="nextDancer()">NEXT</button>
+    <button class="btn ghost" onclick="showResults()">RESULT</button>
+  </div>
+</section>
+
+<section id="results" class="screen">
+  <div class="topbar"><h2 class="title">TOP RESULT</h2><button class="btn ghost small" onclick="go('score')">SCORE</button></div>
+  <div id="resultBoard" class="result-board">
+    <div class="result-head"><div class="result-logo">D.I.S.C.O</div><div id="resultModeTitle" class="result-sub">TOTAL TOP</div></div>
+    <div id="resultList"></div>
+  </div>
+  <div id="uploadBoard" class="result-board upload-board">
+    <div class="result-head"><div class="result-logo">D.I.S.C.O</div><div id="uploadModeTitle" class="result-sub">TOP RESULT</div></div>
+    <div id="uploadResultList"></div>
+  </div>
+  <div class="footer-actions">
+    <button class="btn" onclick="saveUploadImage()">UPLOAD IMAGE SAVE<br><span style='font-size:11px'>점수 숨김</span></button>
+    <button class="btn ghost" onclick="saveResultImage()">FULL IMAGE SAVE<br><span style='font-size:11px'>점수 포함</span></button>
+    <button class="btn ghost" onclick="downloadCSV()">CSV SAVE</button>
+    <button class="btn ghost" onclick="go('score')">점수 수정</button>
+    <button class="btn ghost" onclick="go('mypage')">MY PAGE</button>
+  </div>
+</section>
+
+<section id="mypage" class="screen">
+  <div class="topbar"><h2 class="title">MY PAGE</h2><button class="btn ghost small" onclick="go('admin')">ADMIN</button></div>
+  <div class="card">
+    <h3 style="margin-top:0">저장된 데이터</h3>
+    <p class="hint">한 번 로그인하면 현재 브라우저에 날짜와 함께 자동 저장됩니다.</p>
+    <div id="historyList"></div>
+  </div>
+</section>
+</main>
+
+<script>
+const app={settings:{scoreType:'circle',circleCount:3,judgeCount:3,topCount:6,eventName:'D.I.S.C.O'},dancers:[],scores:{},currentJudge:0,currentIndex:0,input:'',selectedCircle:null,activeIndices:[],eventId:null};
+
+let isLoggedIn=false,pendingAction=null;
+const STORE='DISCO_SCORE_EVENTS_V2';
+
+function $(id){return document.getElementById(id)}
+function clean(s){return String(s??'').replace(/\uFEFF/g,'').trim()}
+function escapeHtml(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function escapeJs(s){return String(s??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'")}
+function circles(){return Array.from({length:app.settings.circleCount},(_,i)=>String.fromCharCode(65+i))}
+function isPhoneLike(s){s=clean(s);return /^(\+?\d[\d\s\-–]{6,}|\d{4,})$/.test(s)}
+function isContactLike(s){s=clean(s);return isPhoneLike(s)||s.includes('@')||s.includes('.com')}
+function isOrderToken(s){return /^[A-Z]-(?:나-)?\d+$/i.test(clean(s).replace(/\s+/g,''))}
+function fixOrder(s){return clean(s).replace(/\s+/g,'').replace(/^([a-z])-/,(_,a)=>a.toUpperCase()+'-')}
+function orderCircle(order){const m=clean(order).match(/^([A-Z])/i);return m?m[1].toUpperCase():''}
+function orderNum(order){const m=clean(order).match(/(\d+)\s*$/);return m?parseInt(m[1],10):999999}
+function orderSide(order){return clean(order).includes('나')?1:0}
+function orderCompare(a,b){return a.circle.localeCompare(b.circle)||orderSide(a.order)-orderSide(b.order)||orderNum(a.order)-orderNum(b.order)}
+function decodeCsvBuffer(buffer){const u8=new Uint8Array(buffer);if(u8[0]===0xEF&&u8[1]===0xBB&&u8[2]===0xBF)return new TextDecoder('utf-8').decode(u8);const utf8=new TextDecoder('utf-8',{fatal:false}).decode(u8);const bad=(utf8.match(/\uFFFD/g)||[]).length;return bad>0?new TextDecoder('euc-kr').decode(u8):utf8}
+
+function getEvents(){try{return JSON.parse(localStorage.getItem(STORE)||'[]')}catch(e){return[]}}
+function setEvents(arr){localStorage.setItem(STORE,JSON.stringify(arr))}
+function saveCurrentEvent(){
+  if(!isLoggedIn)return;
+  if(!app.eventId)app.eventId='event_'+Date.now();
+  const arr=getEvents();
+  const data={id:app.eventId,date:new Date().toLocaleString('ko-KR'),settings:app.settings,dancers:app.dancers,scores:app.scores,selectedCircle:app.selectedCircle,fileName:$('fileName')?.textContent||''};
+  const idx=arr.findIndex(x=>x.id===app.eventId);
+  if(idx>=0)arr[idx]=data;else arr.unshift(data);
+  setEvents(arr.slice(0,30));
+  renderHistory();
+}
+function loadEvent(id){
+  const item=getEvents().find(x=>x.id===id);if(!item)return;
+  app.eventId=item.id;app.settings=item.settings;app.dancers=item.dancers||[];app.scores=item.scores||{};app.selectedCircle=item.selectedCircle||null;
+  $('circleCount').value=app.settings.circleCount;$('judgeCount').value=app.settings.judgeCount;$('topCount').value=app.settings.topCount;$('eventName').value=app.settings.eventName;
+  setScoreType(app.settings.scoreType);renderPreview();renderHomeCircles();go('admin');
+}
+function deleteEvent(id){
+  if(!confirm('이 저장 데이터를 삭제할까?'))return;
+  setEvents(getEvents().filter(x=>x.id!==id));renderHistory();
+}
+function renderHistory(){
+  const box=$('historyList');if(!box)return;
+  const arr=getEvents();
+  if(!arr.length){box.innerHTML='<div class="empty">저장된 데이터가 아직 없어.</div>';return}
+  box.innerHTML=arr.map(x=>`<div class="history-item"><div><b>${escapeHtml(x.settings?.eventName||'D.I.S.C.O')}</b><div class="sub">${escapeHtml(x.date)} · ${escapeHtml(x.settings?.scoreType==='circle'?'한 서클 TOP':'전체 합산 TOP')} · 참가자 ${x.dancers?.length||0}명</div></div><div style="display:flex;gap:8px"><button class="btn ghost small" onclick="loadEvent('${escapeJs(x.id)}')">LOAD</button><button class="btn ghost small" onclick="deleteEvent('${escapeJs(x.id)}')">DELETE</button></div></div>`).join('');
+}
+
+function setScoreType(t){app.settings.scoreType=t;$('typeCircle')?.classList.toggle('active',t==='circle');$('typeAll')?.classList.toggle('active',t==='all');if(t==='circle')$('judgeCount').value=1;syncSettings();renderHomeCircles();saveCurrentEvent()}
+function syncSettings(){app.settings.circleCount=Math.min(26,Math.max(1,parseInt($('circleCount').value||'1')));app.settings.judgeCount=Math.max(1,parseInt($('judgeCount').value||'1'));app.settings.topCount=Math.max(1,parseInt($('topCount').value||'1'));app.settings.eventName=$('eventName').value||'D.I.S.C.O';if(app.settings.scoreType==='circle')app.settings.judgeCount=1;$('scoreTitle').textContent=app.settings.eventName+' SCORE';renderJudgeTabs()}
+
+function parseParticipants(rows){
+  const allowed=circles(),out=[];
+  rows.forEach(row=>{row=Array.from(row||[]).map(clean);row.forEach((cell,idx)=>{
+    if(!isOrderToken(cell))return;
+    const order=fixOrder(cell),circle=orderCircle(order);if(!allowed.includes(circle))return;
+    let name='',battle='';
+    if(idx>=12){name=row[8]||'';battle=row[9]||''}else if(idx>=5){name=row[1]||'';battle=row[2]||''}else{const prev=row.slice(Math.max(0,idx-5),idx).filter(v=>v&&!isContactLike(v)&&!isOrderToken(v));name=prev[0]||'';battle=prev[1]||''}
+    if(!name&&!battle)return;out.push({order,circle,name,battle});
+  })});
+  const seen=new Set();
+  return out.filter(d=>{const key=d.order+'|'+d.name+'|'+d.battle;if(seen.has(key))return false;seen.add(key);return true}).sort(orderCompare);
+}
+function fallbackParse(rows){
+  const allowed=circles(),header=(rows[0]||[]).map(x=>clean(x).toLowerCase()),find=names=>header.findIndex(h=>names.some(n=>h.includes(n)));
+  const oi=find(['순서','order','번호','no']),ci=find(['서클','circle','조']),ni=find(['이름','name','댄서','participant']),bi=find(['배틀','battle','닉네임','aka']);
+  if(oi<0||ni<0)return [];
+  return rows.slice(1).map((r,i)=>{const order=clean(r[oi]||i+1),circle=clean(r[ci]||orderCircle(order)).toUpperCase().replace('서클','').trim();return{order,circle,name:clean(r[ni]),battle:clean(r[bi])}}).filter(d=>(d.name||d.battle)&&allowed.includes(d.circle)).sort(orderCompare);
+}
+function handleFile(e){
+  const file=e.target.files[0];if(!file)return;$('fileName').textContent=file.name;
+  const reader=new FileReader();
+  reader.onload=evt=>{
+    const buffer=evt.target.result;let rows=[];
+    if(file.name.toLowerCase().endsWith('.csv')){const text=decodeCsvBuffer(buffer);const wb=XLSX.read(text,{type:'string'});rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:'',raw:false})}
+    else{const wb=XLSX.read(buffer,{type:'array'});rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:'',raw:false})}
+    let dancers=parseParticipants(rows);if(!dancers.length)dancers=fallbackParse(rows);
+    app.dancers=dancers;renderPreview();renderHomeCircles();resetScores(false);saveCurrentEvent();
+    if(!app.dancers.length)alert('참가자를 읽지 못했어. 관리자 서클 개수와 파일 형식을 확인해줘.');
+  };reader.readAsArrayBuffer(file);
+}
+
+
+/* ===== SAFE LOCAL PIN LOGIN - NO ID/PW IN CODE ===== */
+const AUTH_STORE='DISCO_LOCAL_PIN_AUTH_V3';
+
+async function hashPin(text){
+  try{
+    if(window.crypto && crypto.subtle){
+      const data=new TextEncoder().encode(String(text));
+      const hash=await crypto.subtle.digest('SHA-256',data);
+      return 'sha256:'+Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+    }
+  }catch(e){}
+  // Fallback hash for older in-app browsers. Not strong security, but avoids storing raw PIN.
+  let h=2166136261;
+  const str=String(text);
+  for(let i=0;i<str.length;i++){
+    h^=str.charCodeAt(i);
+    h+=(h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24);
+  }
+  return 'fallback:'+(h>>>0).toString(16);
+}
+function authData(){
+  try{return JSON.parse(localStorage.getItem(AUTH_STORE)||'null')}catch(e){return null}
+}
+function saveAuthData(data){
+  localStorage.setItem(AUTH_STORE,JSON.stringify(data));
+}
+function isPinCreated(){
+  const d=authData();
+  return !!(d && d.pinHash);
+}
+function updateLoginMode(){
+  const setup=!isPinCreated();
+  const guide=document.getElementById('loginGuide');
+  const btn=document.getElementById('loginButton');
+  const reset=document.getElementById('resetPinButton');
+  const id=document.getElementById('loginId');
+  const pw=document.getElementById('loginPw');
+  const d=authData();
+  if(guide) guide.textContent=setup?'처음 실행이야. 관리자 이름과 PIN을 직접 만들어줘.':'관리자 PIN으로 로그인해줘.';
+  if(btn) btn.textContent=setup?'CREATE & LOGIN':'LOGIN';
+  if(reset) reset.style.display=setup?'none':'block';
+  if(id && d && d.adminName && !id.value) id.value=d.adminName;
+  if(pw) pw.value='';
+}
+function requireLogin(action){
+  if(isLoggedIn){runAction(action);return;}
+  pendingAction=action;
+  const err=document.getElementById('loginError');
+  if(err)err.textContent='';
+  updateLoginMode();
+  go('login');
+}
+function runAction(action){
+  if(action==='admin')go('admin');
+  else if(action==='score')startScoring();
+  else go('home');
+}
+async function attemptLogin(){
+  const err=document.getElementById('loginError');
+  const idEl=document.getElementById('loginId');
+  const pwEl=document.getElementById('loginPw');
+  const adminName=(idEl && idEl.value ? idEl.value : '').trim();
+  const pin=(pwEl && pwEl.value ? pwEl.value : '').trim();
+
+  if(err)err.textContent='';
+
+  try{
+    if(!adminName){
+      if(err)err.textContent='관리자 이름을 입력해줘.';
+      return;
+    }
+    if(pin.length<4){
+      if(err)err.textContent='PIN은 4자리 이상으로 입력해줘.';
+      return;
+    }
+
+    const data=authData();
+    const pinHash=await hashPin(pin);
+
+    if(!data || !data.pinHash){
+      saveAuthData({adminName:adminName,pinHash:pinHash,createdAt:new Date().toISOString()});
+      isLoggedIn=true;
+    }else{
+      if(pinHash!==data.pinHash){
+        if(err)err.textContent='PIN이 올바르지 않아.';
+        return;
+      }
+      isLoggedIn=true;
+    }
+
+    if(!app.eventId)app.eventId='event_'+Date.now();
+    if(typeof saveCurrentEvent==='function')saveCurrentEvent();
+
+    const action=pendingAction || 'admin';
+    pendingAction=null;
+    runAction(action);
+  }catch(e){
+    if(err)err.textContent='로그인 처리 중 오류가 났어. Safari/Chrome으로 다시 열어줘.';
+    console.error(e);
+  }
+}
+function resetPin(){
+  if(confirm('이 태블릿에 저장된 PIN을 초기화할까? 행사 저장 데이터는 유지돼.')){
+    localStorage.removeItem(AUTH_STORE);
+    isLoggedIn=false;
+    updateLoginMode();
+    const err=document.getElementById('loginError');
+    if(err)err.textContent='PIN이 초기화됐어. 새 PIN을 만들어줘.';
+  }
+}
+function cancelLogin(){pendingAction=null;go('home');}
+function logout(){isLoggedIn=false;go('home');}
+
+function go(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));$(id).classList.add('active');if(id==='home')renderHomeCircles();if(id==='score')renderScore();if(id==='results')renderResults();if(id==='mypage')renderHistory()}
+
+function renderHomeCircles(){const box=$('homeCircleButtons');if(!box)return;const allowed=circles();if(app.settings.scoreType==='all'){box.innerHTML=`<button class="btn big circle-btn" onclick="chooseAll()">ALL CIRCLES</button>`;return}box.innerHTML=allowed.map(c=>`<button class="btn big circle-btn" onclick="chooseCircle('${escapeJs(c)}')">${escapeHtml(c)} CIRCLE</button>`).join('')}
+function chooseCircle(c){app.selectedCircle=c;requireLogin('score')}function chooseAll(){app.selectedCircle=null;requireLogin('score')}
+function renderPreview(){const body=$('previewBody');if(!app.dancers.length){body.innerHTML='<tr><td colspan="4" class="empty">참가자 파일을 넣어줘.</td></tr>';return}body.innerHTML=app.dancers.map(d=>`<tr><td>${escapeHtml(d.order)}</td><td>${escapeHtml(d.circle)}</td><td>${escapeHtml(d.name)}</td><td>${escapeHtml(d.battle)}</td></tr>`).join('')}
+function loadSample(){app.dancers=[{order:'A-1',circle:'A',name:'권세은',battle:'Seeun'},{order:'A-2',circle:'A',name:'July',battle:'July'},{order:'A-나-1',circle:'A',name:'리야레지',battle:'Rakushi'},{order:'B-1',circle:'B',name:'비댄서',battle:'BIPI'},{order:'C-1',circle:'C',name:'씨댄서',battle:'CERA'}];$('fileName').textContent='예시 참가자 사용 중';renderPreview();renderHomeCircles();resetScores(false);saveCurrentEvent()}
+function resetScores(alertUser=true){app.scores={};app.currentJudge=0;app.currentIndex=0;app.input='';app.dancers.forEach((_,i)=>app.scores[i]=Array(app.settings.judgeCount).fill(null));renderScore();saveCurrentEvent();if(alertUser)alert('점수가 초기화됐어.')}
+function ensureScores(){app.dancers.forEach((_,i)=>{if(!Array.isArray(app.scores[i])||app.scores[i].length!==app.settings.judgeCount)app.scores[i]=Array(app.settings.judgeCount).fill(null)})}
+function computeActiveIndices(){app.activeIndices=app.settings.scoreType==='circle'?app.dancers.map((d,i)=>i).filter(i=>app.dancers[i].circle===app.selectedCircle):app.dancers.map((d,i)=>i)}
+function startScoring(){syncSettings();if(!app.dancers.length){alert('관리자 모드에서 참가자 파일을 먼저 업로드해줘.');go('home');return}ensureScores();computeActiveIndices();if(!app.activeIndices.length){alert('선택한 서클 참가자가 없어.');go('home');return}app.currentJudge=0;app.currentIndex=0;app.input='';saveCurrentEvent();go('score')}
+function renderJudgeTabs(){const tabs=$('judgeTabs');if(!tabs)return;tabs.innerHTML='';const count=app.settings.scoreType==='circle'?1:app.settings.judgeCount;for(let i=0;i<count;i++){const b=document.createElement('button');b.className='judge-tab '+(i===app.currentJudge?'active':'');b.textContent='JUDGE '+(i+1);b.onclick=()=>{app.currentJudge=i;app.currentIndex=0;app.input='';renderScore()};tabs.appendChild(b)}}
+function renderScore(){syncSettings();renderJudgeTabs();const indices=app.activeIndices||[],origIdx=indices[app.currentIndex],d=origIdx!==undefined?app.dancers[origIdx]:null;$('bar').style.width=(((app.currentIndex+1)/(indices.length||1))*100)+'%';$('circleTag').textContent=app.settings.scoreType==='circle'?(app.selectedCircle+' CIRCLE'):'ALL CIRCLES';if(!d){$('dancerName').textContent='NO DANCER';$('battleName').textContent='참가자를 불러와줘.';$('scoreDisplay').textContent='0';return}$('orderBadge').textContent='ORDER '+d.order;$('circleBadge').textContent='CIRCLE '+d.circle;$('judgeBadge').textContent='JUDGE '+(app.currentJudge+1);$('dancerName').textContent=d.battle||d.name;$('battleName').textContent=d.name?('REAL NAME · '+d.name):'';const saved=app.scores[origIdx]?.[app.currentJudge];$('scoreDisplay').textContent=app.input||(saved!==null&&saved!==undefined?saved:'0');$('nextBtn').classList.toggle('hidden',!(saved!==null&&saved!==undefined))}
+function tap(v){if(v==='.'&&app.input.includes('.'))return;if(app.input.length>=5)return;if(app.input==='0'&&v!=='.')app.input='';app.input+=v;$('scoreDisplay').textContent=app.input;$('nextBtn').classList.add('hidden')}
+function backspace(){app.input=app.input.slice(0,-1);$('scoreDisplay').textContent=app.input||'0';$('nextBtn').classList.add('hidden')}function clearScore(){app.input='';$('scoreDisplay').textContent='0';$('nextBtn').classList.add('hidden')}
+function saveAndNext(){const indices=app.activeIndices||[],origIdx=indices[app.currentIndex],value=parseFloat(app.input||$('scoreDisplay').textContent);if(isNaN(value)){alert('점수를 입력해줘.');return}app.scores[origIdx][app.currentJudge]=value;app.input='';$('nextBtn').classList.remove('hidden');saveCurrentEvent()}
+function nextDancer(){const indices=app.activeIndices||[];if(app.currentIndex<indices.length-1){app.currentIndex++;app.input='';renderScore()}else if(app.settings.scoreType==='all'&&app.currentJudge<app.settings.judgeCount-1){app.currentJudge++;app.currentIndex=0;app.input='';renderScore()}else showResults()}
+function prevDancer(){if(app.currentIndex>0)app.currentIndex--;else if(app.currentJudge>0){app.currentJudge--;app.currentIndex=(app.activeIndices||[]).length-1}app.input='';renderScore()}
+function showResults(){renderResults();saveCurrentEvent();go('results')}
+
+function getRanked(){
+  const top=app.settings.topCount,indices=(app.activeIndices&&app.activeIndices.length)?app.activeIndices:app.dancers.map((_,i)=>i);
+  const list=indices.map(i=>{const d=app.dancers[i],arr=app.scores[i]||[],used=app.settings.scoreType==='circle'?[arr[0]]:arr.slice(0,app.settings.judgeCount);const total=used.reduce((s,v)=>s+(parseFloat(v)||0),0),avg=used.length?total/used.length:0;return {...d,total,avg,scores:used,originalIndex:i}}).sort((a,b)=>b.total-a.total||orderCompare(a,b));
+  const cutoff=list[top-1]?.total;
+  return list.map((x,i)=>({...x,rank:i+1,cutTie:cutoff!==undefined&&i>=top&&x.total===cutoff})).filter((x,i)=>i<top || x.cutTie);
+}
+function renderResultItems(targetId, hideScore=false){
+  const list=getRanked(),box=$(targetId);
+  if(!list.length){box.innerHTML='<div class="empty">결과가 아직 없어.</div>';return}
+  box.innerHTML=list.map(x=>{
+    const scoreDetail=x.scores.map((s,i)=>`J${i+1}: ${s??'-'}`).join(' · ');
+    return `<div class="result-item">
+      <div class="rank">#${x.rank}</div>
+      <div>
+        <div class="name">${escapeHtml(x.name||x.battle)}</div>
+        <div class="sub">ORDER ${escapeHtml(x.order)} · CIRCLE ${escapeHtml(x.circle)} · ${escapeHtml(x.battle)}</div>
+        ${hideScore?'':`<div class="sub score-line">${scoreDetail}</div>`}
+        ${x.cutTie?'<div class="tie-note">커트라인 동점 추가 표기</div>':''}
+      </div>
+      ${hideScore?'':'<div class="score">'+x.total+'</div><div class="avg">'+x.avg.toFixed(1)+'</div>'}
+    </div>`;
+  }).join('');
+}
+function renderResults(){
+  const title=app.settings.scoreType==='circle'?`${app.selectedCircle} CIRCLE · JUDGE 1 · TOP ${app.settings.topCount}`:`ALL CIRCLES · TOTAL / AVG · TOP ${app.settings.topCount}`;
+  $('resultModeTitle').textContent=title;$('uploadModeTitle').textContent=title;
+  renderResultItems('resultList',false);renderResultItems('uploadResultList',true);
+}
+function downloadCSV(){const rows=[['rank','order','circle','name','battle_name','total','average','cutline_tie'],...getRanked().map(x=>[x.rank,x.order,x.circle,x.name,x.battle,x.total,x.avg.toFixed(2),x.cutTie?'Y':''])];const csv=rows.map(r=>r.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(',')).join('\n');const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`DISCO_${app.settings.scoreType==='circle'?app.selectedCircle+'_CIRCLE':'ALL'}_TOP_RESULT.csv`;a.click();URL.revokeObjectURL(url)}
+function saveCanvas(el,name){html2canvas(el,{backgroundColor:'#07070a',scale:2,useCORS:true}).then(canvas=>{const a=document.createElement('a');a.href=canvas.toDataURL('image/png');a.download=name;a.click()})}
+function saveResultImage(){saveCanvas($('resultBoard'),`DISCO_FULL_SCORE_RESULT.png`)}
+function saveUploadImage(){saveCanvas($('uploadBoard'),`DISCO_UPLOAD_NO_SCORE_RESULT.png`)}
+
+renderPreview();renderHomeCircles();syncSettings();renderHistory();
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW registration failed', err));
+  });
+}
+</script>
+
+</body>
+</html>
