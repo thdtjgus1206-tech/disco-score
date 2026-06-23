@@ -749,6 +749,213 @@ td{
   }
 }
 
+
+/* ===== IPAD FULL KEYPAD PATCH V3 ===== */
+@media (min-width:761px) and (max-width:1366px) {
+  html, body {
+    height: 100%;
+    overflow-x: hidden;
+  }
+
+  .app {
+    width: 100%;
+    max-width: 100%;
+    padding: 10px 12px 8px !important;
+  }
+
+  #score.screen {
+    min-height: 100dvh !important;
+    height: 100dvh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    padding-bottom: 0 !important;
+  }
+
+  #score .topbar {
+    flex: 0 0 auto;
+    margin-bottom: 6px !important;
+  }
+
+  #score .title {
+    font-size: clamp(42px, 6vw, 74px) !important;
+    line-height: .86 !important;
+  }
+
+  #score .circle-chip {
+    margin-top: 6px !important;
+  }
+
+  #score .judge-tabs {
+    flex: 0 0 auto;
+    padding-bottom: 5px !important;
+  }
+
+  #score .judge-tab {
+    min-height: 50px !important;
+    padding: 12px 22px !important;
+    font-size: 16px !important;
+  }
+
+  #score .progress {
+    flex: 0 0 auto;
+    height: 8px !important;
+    margin-bottom: 8px !important;
+  }
+
+  #score .card.dancer-card {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    width: 100% !important;
+    margin: 6px 0 8px !important;
+    padding: 16px 18px 14px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: stretch !important;
+  }
+
+  #score .meta {
+    flex: 0 0 auto;
+    margin-bottom: 5px !important;
+  }
+
+  #score .badge {
+    padding: 8px 16px !important;
+    font-size: 14px !important;
+  }
+
+  #score .dancer-name {
+    flex: 0 0 auto;
+    font-size: clamp(70px, 8.6vw, 118px) !important;
+    line-height: .86 !important;
+    margin: 6px 0 0 !important;
+    letter-spacing: .08em !important;
+    text-transform: uppercase !important;
+  }
+
+  #score .battle-name {
+    flex: 0 0 auto;
+    min-height: 24px !important;
+    font-size: 20px !important;
+    line-height: 1.1 !important;
+    margin: 2px 0 8px !important;
+  }
+
+  #score .score-display {
+    flex: 0 0 auto;
+    width: 100% !important;
+    max-width: none !important;
+    min-height: 84px !important;
+    margin: 6px 0 10px !important;
+    font-size: 60px !important;
+    border-radius: 22px !important;
+  }
+
+  #score .keypad {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 9px !important;
+  }
+
+  #score .key {
+    min-height: 0 !important;
+    height: 100% !important;
+    border-radius: 20px !important;
+    font-size: clamp(36px, 4.8vw, 58px) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  #score .key.func {
+    font-size: clamp(18px, 2vw, 24px) !important;
+  }
+
+  #score .key.ok {
+    font-size: clamp(34px, 4.6vw, 56px) !important;
+  }
+
+  #score .next-wrap {
+    display: none !important;
+  }
+
+  #score .footer-actions {
+    flex: 0 0 auto;
+    position: static !important;
+    margin: 0 !important;
+    padding: 8px 0 0 !important;
+    background: transparent !important;
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  #score .footer-actions .btn {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 66px !important;
+    font-size: 16px !important;
+    padding: 10px 12px !important;
+  }
+}
+
+/* iPad 가로: 전체 화면 꽉 차게 */
+@media (min-width:1000px) and (max-width:1366px) and (orientation: landscape) {
+  #score .title {
+    font-size: clamp(44px, 5vw, 68px) !important;
+  }
+
+  #score .card.dancer-card {
+    padding: 12px 20px 12px !important;
+  }
+
+  #score .dancer-name {
+    font-size: clamp(66px, 7.2vw, 104px) !important;
+  }
+
+  #score .battle-name {
+    font-size: 18px !important;
+    margin-bottom: 6px !important;
+  }
+
+  #score .score-display {
+    min-height: 74px !important;
+    font-size: 54px !important;
+    margin-bottom: 8px !important;
+  }
+
+  #score .keypad {
+    gap: 8px !important;
+  }
+
+  #score .footer-actions .btn {
+    min-height: 58px !important;
+  }
+}
+
+/* iPad 세로 */
+@media (min-width:761px) and (max-width:1024px) and (orientation: portrait) {
+  #score .card.dancer-card {
+    margin-bottom: 6px !important;
+  }
+
+  #score .keypad {
+    gap: 10px !important;
+  }
+
+  #score .key {
+    font-size: clamp(40px, 6vw, 62px) !important;
+  }
+
+  #score .footer-actions .btn {
+    min-height: 70px !important;
+  }
+}
+
 </style>
 </head>
 <body>

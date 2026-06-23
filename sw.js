@@ -1,4 +1,4 @@
-const CACHE_NAME = 'disco-neon-tablet-v2';
+const CACHE_NAME = 'disco-ipad-full-keypad-v3';
 const URLS = [
   './',
   './index.html',
