@@ -194,3 +194,168 @@ function saveCanvas(node,name){
 }
 function saveResultImage(){saveCanvas(el('resultBoard'),'DISCO_FULL_SCORE_RESULT.png')}
 function saveUploadImage(){saveCanvas(el('uploadBoard'),'DISCO_UPLOAD_NO_SCORE_RESULT.png')}
+
+
+/* ===== V2.5 BRACKET GENERATOR ===== */
+function getTopSeedsForBracket(){
+  const previousTop=app.settings.topCount;
+  app.settings.topCount=16;
+  const seeds=getFinalRanked().slice(0,16);
+  app.settings.topCount=previousTop;
+  return seeds;
+}
+function seedLabel(player){
+  if(!player)return '미정';
+  return player.battle||player.name||'NO NAME';
+}
+function seedSub(player){
+  if(!player)return '';
+  return `SEED #${player.rank} · ORDER ${player.order} · GROUP ${participantGroupLabel(player)}`;
+}
+function makeRoundPairsFromSeeds(seeds){
+  const pairs=[];
+  for(let i=0;i<16;i+=2){
+    pairs.push([seeds[i]||null,seeds[i+1]||null]);
+  }
+  return pairs;
+}
+function makePlaceholderPairs(roundName,count,offset=0){
+  const arr=[];
+  for(let i=0;i<count;i++){
+    const a=offset+i*2+1;
+    const b=offset+i*2+2;
+    arr.push([`${roundName} ${a} 승자`,`${roundName} ${b} 승자`]);
+  }
+  return arr;
+}
+function renderBracketMatch(pair,index,isPlaceholder=false){
+  if(isPlaceholder){
+    return `<div class="bracket-match">
+      <div class="match-no">M${index+1}</div>
+      <div class="bracket-placeholder">${escapeHtml(pair[0])}</div>
+      <div class="vs">VS</div>
+      <div class="bracket-placeholder">${escapeHtml(pair[1])}</div>
+    </div>`;
+  }
+  const a=pair[0],b=pair[1];
+  return `<div class="bracket-match">
+    <div class="match-no">M${index+1}</div>
+    <div class="seed-player">
+      <div class="seed-name">${escapeHtml(seedLabel(a))}</div>
+      <div class="seed-sub">${escapeHtml(seedSub(a))}</div>
+    </div>
+    <div class="vs">VS</div>
+    <div class="seed-player">
+      <div class="seed-name">${escapeHtml(seedLabel(b))}</div>
+      <div class="seed-sub">${escapeHtml(seedSub(b))}</div>
+    </div>
+  </div>`;
+}
+function generateBracket(){
+  const board=el('bracketBoard');
+  if(!board)return;
+  const seeds=getTopSeedsForBracket();
+  if(seeds.length<2){
+    board.innerHTML='<div class="live-empty">대진표를 만들 랭킹 데이터가 부족해.</div>';
+    return;
+  }
+  const top16=makeRoundPairsFromSeeds(seeds);
+  const top8=[
+    ['16강 M1 승자','16강 M2 승자'],
+    ['16강 M3 승자','16강 M4 승자'],
+    ['16강 M5 승자','16강 M6 승자'],
+    ['16강 M7 승자','16강 M8 승자']
+  ];
+  const top4=[
+    ['8강 M1 승자','8강 M2 승자'],
+    ['8강 M3 승자','8강 M4 승자']
+  ];
+  const final=[['4강 M1 승자','4강 M2 승자']];
+
+  board.innerHTML=`
+    <div class="bracket-round">
+      <div class="bracket-round-title">TOP 16</div>
+      ${top16.map((p,i)=>renderBracketMatch(p,i,false)).join('')}
+    </div>
+    <div class="bracket-round">
+      <div class="bracket-round-title">TOP 8</div>
+      ${top8.map((p,i)=>renderBracketMatch(p,i,true)).join('')}
+    </div>
+    <div class="bracket-round">
+      <div class="bracket-round-title">TOP 4</div>
+      ${top4.map((p,i)=>renderBracketMatch(p,i,true)).join('')}
+    </div>
+    <div class="bracket-round">
+      <div class="bracket-round-title">FINAL</div>
+      ${final.map((p,i)=>renderBracketMatch(p,i,true)).join('')}
+    </div>
+  `;
+  renderBracketStory(seeds);
+}
+function storyPlayer(player){
+  if(!player){
+    return `<div class="story-player"><div class="story-placeholder">미정</div></div>`;
+  }
+  return `<div class="story-player">
+    <div class="story-player-name">${escapeHtml(seedLabel(player))}</div>
+    <div class="story-player-seed">SEED #${player.rank} · ${escapeHtml(participantGroupLabel(player))} GROUP</div>
+  </div>`;
+}
+function storyPlaceholder(text){
+  return `<div class="story-player"><div class="story-placeholder">${escapeHtml(text)}</div></div>`;
+}
+function storyMatch(left,right,isPlayer=true){
+  return `<div class="story-match">
+    ${isPlayer?storyPlayer(left):storyPlaceholder(left)}
+    <div class="story-vs">VS</div>
+    ${isPlayer?storyPlayer(right):storyPlaceholder(right)}
+  </div>`;
+}
+function renderBracketStory(seeds=null){
+  const content=el('bracketStoryContent');
+  if(!content)return;
+  if(!seeds)seeds=getTopSeedsForBracket();
+  const top16=makeRoundPairsFromSeeds(seeds);
+  const top8=[
+    ['16강 M1 승자','16강 M2 승자'],
+    ['16강 M3 승자','16강 M4 승자'],
+    ['16강 M5 승자','16강 M6 승자'],
+    ['16강 M7 승자','16강 M8 승자']
+  ];
+  const top4=[
+    ['8강 M1 승자','8강 M2 승자'],
+    ['8강 M3 승자','8강 M4 승자']
+  ];
+  const final=[['4강 M1 승자','4강 M2 승자']];
+
+  content.innerHTML=`
+    <div class="story-round">
+      <div class="story-round-title">TOP 16</div>
+      ${top16.map(p=>storyMatch(p[0],p[1],true)).join('')}
+    </div>
+    <div class="story-round">
+      <div class="story-round-title">TOP 8</div>
+      ${top8.map(p=>storyMatch(p[0],p[1],false)).join('')}
+    </div>
+    <div class="story-round">
+      <div class="story-round-title">TOP 4</div>
+      ${top4.map(p=>storyMatch(p[0],p[1],false)).join('')}
+    </div>
+    <div class="story-round">
+      <div class="story-round-title">FINAL</div>
+      ${final.map(p=>storyMatch(p[0],p[1],false)).join('')}
+    </div>
+  `;
+}
+function saveBracketStoryImage(){
+  generateBracket();
+  setTimeout(()=>{
+    const node=el('bracketStoryBoard');
+    html2canvas(node,{backgroundColor:'#02030a',scale:2,useCORS:true,width:1080,height:1920}).then(canvas=>{
+      const a=document.createElement('a');
+      a.href=canvas.toDataURL('image/png');
+      a.download='DISCO_TOP16_BRACKET_STORY.png';
+      a.click();
+    });
+  },250);
+}

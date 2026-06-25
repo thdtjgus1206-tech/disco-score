@@ -123,6 +123,33 @@
         <div id="liveRankList" class="live-rank-list"></div>
       </div>
 
+
+      <div class="card bracket-card">
+        <div class="topbar">
+          <div>
+            <h3 class="card-title">대진표 생성</h3>
+            <div class="hint">현재 랭킹 TOP 16 기준으로 16강 / 8강 / 4강 / 결승 대진표를 생성합니다.</div>
+          </div>
+          <div class="top-actions">
+            <button class="btn ghost small" onclick="generateBracket()">GENERATE</button>
+            <button class="btn small" onclick="saveBracketStoryImage()">STORY IMAGE SAVE</button>
+          </div>
+        </div>
+
+        <div class="hint bracket-hint">16강은 #1-#2, #3-#4, #5-#6 순서로 배틀이 생성됩니다.</div>
+        <div id="bracketBoard" class="bracket-board">
+          <div class="live-empty">랭킹 점수 입력 후 GENERATE 버튼을 눌러줘.</div>
+        </div>
+      </div>
+
+      <div id="bracketStoryBoard" class="bracket-story-board">
+        <div class="bracket-story-inner">
+          <div class="bracket-story-logo">D.I.S.C.O</div>
+          <div class="bracket-story-sub">TOP 16 TOURNAMENT BRACKET</div>
+          <div id="bracketStoryContent"></div>
+        </div>
+      </div>
+
       <div class="card">
         <label>PARTICIPANT FILE</label>
         <div class="upload">
@@ -171,9 +198,10 @@
       <div class="card dancer-card">
         <div class="meta">
           <span id="orderBadge" class="badge">ORDER -</span>
-          <span id="circleBadge" class="badge">CIRCLE -</span>
-          <span id="judgeBadge" class="badge">JUDGE 1</span>
+          <span id="circleBadge" class="badge">GROUP -</span>
+          <span id="judgeBadge" class="badge judge-main-badge">A JUDGE</span>
         </div>
+        <div id="judgeNameLine" class="judge-name-line">JUDGE NAME</div>
         <div id="dancerName" class="dancer-name">NO DANCER</div>
         <div id="battleName" class="battle-name">LOAD PARTICIPANTS IN ADMIN MODE</div>
         <div id="scoreDisplay" class="score-display">0</div>

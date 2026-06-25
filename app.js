@@ -301,7 +301,11 @@ function renderJudgeTabs(){
     const c=judgeCircleForIndex(i);
     const b=document.createElement('button');
     b.className='judge-tab '+(i===app.currentJudge?'active':'');
-    b.textContent=app.settings.scoreType==='circle'?`${c} CIRCLE · ${judgeNameForIndex(i)}`:'JUDGE '+(i+1);
+    if(app.settings.scoreType==='circle'){
+      b.innerHTML=`<span class="judge-tab-circle">${c} JUDGE</span><span class="judge-tab-name">${escapeHtml(judgeNameForIndex(i))}</span>`;
+    }else{
+      b.innerHTML=`<span class="judge-tab-circle">JUDGE ${i+1}</span><span class="judge-tab-name">${escapeHtml(judgeNameForIndex(i))}</span>`;
+    }
     b.onclick=()=>{
       app.currentJudge=i;
       app.currentIndex=0;
@@ -326,11 +330,20 @@ function renderScore(){
     el('dancerName').textContent='NO DANCER';
     el('battleName').textContent='참가자를 불러와줘.';
     el('scoreDisplay').textContent='0';
+    if(el('judgeNameLine'))el('judgeNameLine').textContent='';
     return;
   }
   el('orderBadge').textContent='ORDER '+d.order;
   el('circleBadge').textContent='GROUP '+participantGroupLabel(d);
-  el('judgeBadge').textContent=app.settings.scoreType==='circle'?judgeNameForIndex(app.currentJudge):('JUDGE '+(app.currentJudge+1));
+  el('judgeBadge').textContent=app.settings.scoreType==='circle'
+    ? (judgeCircleForIndex(app.currentJudge)+' JUDGE')
+    : ('JUDGE '+(app.currentJudge+1));
+  const judgeNameNode=el('judgeNameLine');
+  if(judgeNameNode){
+    judgeNameNode.textContent=app.settings.scoreType==='circle'
+      ? judgeNameForIndex(app.currentJudge)
+      : judgeNameForIndex(app.currentJudge);
+  }
   el('dancerName').textContent=d.battle||d.name||'NO NAME';
   el('battleName').textContent=d.name?'REAL NAME · '+d.name:'';
   const saved=app.scores[origIdx]?.[app.currentJudge];
