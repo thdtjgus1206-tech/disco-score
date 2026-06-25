@@ -124,28 +124,29 @@
       </div>
 
 
+
       <div class="card bracket-card">
         <div class="topbar">
           <div>
-            <h3 class="card-title">대진표 생성</h3>
-            <div class="hint">현재 랭킹 TOP 16 기준으로 16강 / 8강 / 4강 / 결승 대진표를 생성합니다.</div>
+            <h3 class="card-title">TOP 16 대진표 생성</h3>
+            <div class="hint">시드 1~16에 들어갈 댄서 이름을 직접 입력하면 인스타 스토리용 대진표 이미지를 만들 수 있습니다.</div>
           </div>
           <div class="top-actions">
-            <button class="btn ghost small" onclick="generateBracket()">GENERATE</button>
+            <button class="btn ghost small" onclick="clearBracketSeeds()">CLEAR</button>
             <button class="btn small" onclick="saveBracketStoryImage()">STORY IMAGE SAVE</button>
           </div>
         </div>
 
-        <div class="hint bracket-hint">16강은 #1-#2, #3-#4, #5-#6 순서로 배틀이 생성됩니다.</div>
-        <div id="bracketBoard" class="bracket-board">
-          <div class="live-empty">랭킹 점수 입력 후 GENERATE 버튼을 눌러줘.</div>
-        </div>
+        <div class="manual-seed-grid" id="manualSeedInputs"></div>
+
+        <div class="hint bracket-hint">대진 순서: 1-2 / 3-4 / 5-6 / 7-8 / 9-10 / 11-12 / 13-14 / 15-16</div>
+        <div id="bracketBoard" class="bracket-board"></div>
       </div>
 
       <div id="bracketStoryBoard" class="bracket-story-board">
         <div class="bracket-story-inner">
           <div class="bracket-story-logo">D.I.S.C.O</div>
-          <div class="bracket-story-sub">TOP 16 TOURNAMENT BRACKET</div>
+          <div class="bracket-story-sub">TOP 16 BATTLE BRACKET</div>
           <div id="bracketStoryContent"></div>
         </div>
       </div>

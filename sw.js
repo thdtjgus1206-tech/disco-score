@@ -1,4 +1,4 @@
-const CACHE_NAME = 'disco-v2-5-bracket-006';
+const CACHE_NAME = 'disco-v2-6-manual-bracket-007';
 const URLS = [
   './',
   './index.html',
