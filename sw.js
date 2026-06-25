@@ -1,4 +1,4 @@
-const CACHE_NAME = 'disco-v2-live-ranking-002';
+const CACHE_NAME = 'disco-v2-2-judge-circle-003';
 const URLS = [
   './',
   './index.html',

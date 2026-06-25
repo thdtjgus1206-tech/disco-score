@@ -1,5 +1,5 @@
 const app={
-  settings:{scoreType:'circle',circleCount:3,judgeCount:3,topCount:6,eventName:'D.I.S.C.O'},
+  settings:{scoreType:'circle',circleCount:3,judgeCount:3,topCount:6,eventName:'D.I.S.C.O',judgeNames:{}},
   dancers:[],
   scores:{},
   currentJudge:0,
@@ -19,6 +19,12 @@ function escapeHtml(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','
 function escapeJs(s){return String(s??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'")}
 function capitalize(s){return s.charAt(0).toUpperCase()+s.slice(1)}
 function circles(){return Array.from({length:app.settings.circleCount},(_,i)=>String.fromCharCode(65+i))}
+function judgeCircleForIndex(judgeIndex){return circles()[judgeIndex]||String.fromCharCode(65+judgeIndex)}
+function judgeNameForIndex(judgeIndex){
+  const c=judgeCircleForIndex(judgeIndex);
+  return app.settings.judgeNames?.[c] || `${c}서클 져지`;
+}
+function participantGroupLabel(d){return d.circle||''}
 function orderCircle(order){const m=clean(order).match(/^([A-Z])/i);return m?m[1].toUpperCase():''}
 function orderNum(order){const m=clean(order).match(/(\d+)\s*$/);return m?parseInt(m[1],10):999999}
 function orderSide(order){return clean(order).includes('나')?1:0}
@@ -98,15 +104,16 @@ function go(id){
   if(id==='home')renderHomeCircles();
   if(id==='score')renderScore();
   if(id==='results')renderResults();
-  if(id==='admin')renderLiveRanking();
+  if(id==='admin'){renderJudgeNameInputs();renderLiveRanking();}
   if(id==='mypage')renderHistory();
+  renderJudgeNameInputs();
 }
 
 function setScoreType(type, shouldSave=true){
   app.settings.scoreType=type;
   el('typeCircle').classList.toggle('active',type==='circle');
   el('typeAll').classList.toggle('active',type==='all');
-  if(type==='circle')el('judgeCount').value=1;
+  if(type==='circle')el('judgeCount').value=el('circleCount').value||3;
   syncSettings();
   renderHomeCircles();
   if(shouldSave)saveCurrentEvent();
@@ -116,9 +123,25 @@ function syncSettings(){
   app.settings.judgeCount=Math.max(1,parseInt(el('judgeCount').value||'1'));
   app.settings.topCount=Math.max(1,parseInt(el('topCount').value||'1'));
   app.settings.eventName=el('eventName').value||'D.I.S.C.O';
-  if(app.settings.scoreType==='circle')app.settings.judgeCount=1;
+  if(app.settings.scoreType==='circle')app.settings.judgeCount=Math.max(1,app.settings.circleCount);
+  if(!app.settings.judgeNames)app.settings.judgeNames={};
+  circles().forEach(c=>{if(app.settings.judgeNames[c]===undefined)app.settings.judgeNames[c]='';});
   el('scoreTitle').textContent=app.settings.eventName+' SCORE';
   renderJudgeTabs();
+}
+
+function renderJudgeNameInputs(){
+  const box=el('judgeNameInputs');
+  if(!box)return;
+  if(!app.settings.judgeNames)app.settings.judgeNames={};
+  const list=circles();
+  box.innerHTML=list.map((c,i)=>{
+    const value=escapeHtml(app.settings.judgeNames[c]||'');
+    return `<div class="judge-name-box">
+      <label>${c}서클 져지 이름</label>
+      <input value="${value}" placeholder="${c}서클 져지" oninput="app.settings.judgeNames['${c}']=this.value;saveCurrentEvent();renderLiveRanking()">
+    </div>`;
+  }).join('');
 }
 
 function parseParticipants(rows){
@@ -198,7 +221,7 @@ function renderPreview(){
     body.innerHTML='<tr><td colspan="4" class="empty">참가자 파일을 넣어줘.</td></tr>';
     return;
   }
-  body.innerHTML=app.dancers.map(d=>`<tr><td>${escapeHtml(d.order)}</td><td>${escapeHtml(d.circle)}</td><td>${escapeHtml(d.name)}</td><td>${escapeHtml(d.battle)}</td></tr>`).join('');
+  body.innerHTML=app.dancers.map(d=>`<tr><td>${escapeHtml(d.order)}</td><td>${escapeHtml(participantGroupLabel(d))}</td><td>${escapeHtml(d.name)}</td><td>${escapeHtml(d.battle)}</td></tr>`).join('');
 }
 function loadSample(){
   app.dancers=[
@@ -216,12 +239,16 @@ function loadSample(){
 }
 function renderHomeCircles(){
   const box=el('homeCircleButtons');
-  const allowed=circles();
-  if(app.settings.scoreType==='all'){
-    box.innerHTML='<button class="btn big circle-btn" onclick="chooseAll()">ALL CIRCLES</button>';
-    return;
+  if(!box)return;
+  box.innerHTML='';
+}
+function startFromHome(){
+  if(app.settings.scoreType==='circle'){
+    app.selectedCircle=judgeCircleForIndex(0);
+  }else{
+    app.selectedCircle=null;
   }
-  box.innerHTML=allowed.map(c=>`<button class="btn big circle-btn" onclick="chooseCircle('${escapeJs(c)}')">${escapeHtml(c)} CIRCLE</button>`).join('');
+  requireLogin('score');
 }
 function chooseCircle(c){app.selectedCircle=c;requireLogin('score')}
 function chooseAll(){app.selectedCircle=null;requireLogin('score')}
@@ -245,9 +272,13 @@ function ensureScores(){
   });
 }
 function computeActiveIndices(){
-  app.activeIndices=app.settings.scoreType==='circle'
-    ? app.dancers.map((d,i)=>i).filter(i=>app.dancers[i].circle===app.selectedCircle)
-    : app.dancers.map((d,i)=>i);
+  if(app.settings.scoreType==='circle'){
+    const c=judgeCircleForIndex(app.currentJudge);
+    app.selectedCircle=c;
+    app.activeIndices=app.dancers.map((d,i)=>i).filter(i=>participantGroupLabel(app.dancers[i])===c);
+  }else{
+    app.activeIndices=app.dancers.map((d,i)=>i);
+  }
 }
 function startScoring(){
   syncSettings();
@@ -265,23 +296,31 @@ function renderJudgeTabs(){
   const tabs=el('judgeTabs');
   if(!tabs)return;
   tabs.innerHTML='';
-  const count=app.settings.scoreType==='circle'?1:app.settings.judgeCount;
+  const count=app.settings.scoreType==='circle'?app.settings.judgeCount:app.settings.judgeCount;
   for(let i=0;i<count;i++){
+    const c=judgeCircleForIndex(i);
     const b=document.createElement('button');
     b.className='judge-tab '+(i===app.currentJudge?'active':'');
-    b.textContent='JUDGE '+(i+1);
-    b.onclick=()=>{app.currentJudge=i;app.currentIndex=0;app.input='';renderScore()};
+    b.textContent=app.settings.scoreType==='circle'?`${c} CIRCLE · ${judgeNameForIndex(i)}`:'JUDGE '+(i+1);
+    b.onclick=()=>{
+      app.currentJudge=i;
+      app.currentIndex=0;
+      app.input='';
+      computeActiveIndices();
+      renderScore();
+    };
     tabs.appendChild(b);
   }
 }
 function renderScore(){
   syncSettings();
   renderJudgeTabs();
+  if(app.settings.scoreType==='circle')computeActiveIndices();
   const indices=app.activeIndices||[];
   const origIdx=indices[app.currentIndex];
   const d=origIdx!==undefined?app.dancers[origIdx]:null;
   el('bar').style.width=(((app.currentIndex+1)/(indices.length||1))*100)+'%';
-  el('circleTag').textContent=app.settings.scoreType==='circle'?(app.selectedCircle+' CIRCLE'):'ALL CIRCLES';
+  el('circleTag').textContent=app.settings.scoreType==='circle'?(`${judgeCircleForIndex(app.currentJudge)} CIRCLE · ${judgeNameForIndex(app.currentJudge)}`):'ALL CIRCLES';
 
   if(!d){
     el('dancerName').textContent='NO DANCER';
@@ -290,8 +329,8 @@ function renderScore(){
     return;
   }
   el('orderBadge').textContent='ORDER '+d.order;
-  el('circleBadge').textContent='CIRCLE '+d.circle;
-  el('judgeBadge').textContent='JUDGE '+(app.currentJudge+1);
+  el('circleBadge').textContent='GROUP '+participantGroupLabel(d);
+  el('judgeBadge').textContent=app.settings.scoreType==='circle'?judgeNameForIndex(app.currentJudge):('JUDGE '+(app.currentJudge+1));
   el('dancerName').textContent=d.battle||d.name||'NO NAME';
   el('battleName').textContent=d.name?'REAL NAME · '+d.name:'';
   const saved=app.scores[origIdx]?.[app.currentJudge];
@@ -329,10 +368,11 @@ function nextDancer(){
     app.currentIndex++;
     app.input='';
     renderScore();
-  }else if(app.settings.scoreType==='all'&&app.currentJudge<app.settings.judgeCount-1){
+  }else if(app.currentJudge<app.settings.judgeCount-1){
     app.currentJudge++;
     app.currentIndex=0;
     app.input='';
+    computeActiveIndices();
     renderScore();
   }else{
     showResults();
@@ -345,6 +385,7 @@ function prevDancer(){
     app.currentIndex=(app.activeIndices||[]).length-1;
   }
   app.input='';
+  if(app.settings.scoreType==='circle')computeActiveIndices();
   renderScore();
 }
 function showResults(){

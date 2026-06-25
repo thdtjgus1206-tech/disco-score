@@ -1,17 +1,18 @@
 function scoreValuesFor(index, mode){
   const arr=app.scores[index]||[];
-  if(mode==='circle') return [arr[0]];
+  if(mode==='circle') return [arr[app.currentJudge] ?? arr[0]];
   return arr.slice(0, app.settings.judgeCount||1);
 }
 
-function rankedForIndices(indices, mode='current'){
-  const scoreMode = mode==='current'
-    ? (app.settings.scoreType==='circle'?'circle':'total')
-    : mode;
+function scoreValuesForJudge(index, judgeIndex){
+  const arr=app.scores[index]||[];
+  return [arr[judgeIndex]];
+}
 
+function rankedForIndices(indices, mode='current', judgeIndex=null){
   const list=indices.map(i=>{
     const d=app.dancers[i];
-    const used=scoreValuesFor(i, scoreMode);
+    const used = judgeIndex===null ? scoreValuesFor(i, mode) : scoreValuesForJudge(i, judgeIndex);
     const valid=used.filter(v=>v!==null&&v!==undefined&&v!==''&&!isNaN(parseFloat(v)));
     const total=valid.reduce((s,v)=>s+(parseFloat(v)||0),0);
     const avg=valid.length?total/valid.length:0;
@@ -26,13 +27,35 @@ function rankedForIndices(indices, mode='current'){
   return list.map((x,i)=>({...x,rank:i+1}));
 }
 
+function finalIndices(){
+  if(app.settings.scoreType==='circle'){
+    return app.dancers.map((d,i)=>i);
+  }
+  return (app.activeIndices&&app.activeIndices.length)?app.activeIndices:app.dancers.map((_,i)=>i);
+}
+
 function getFinalRanked(){
   const top=app.settings.topCount;
-  const indices=(app.activeIndices&&app.activeIndices.length)?app.activeIndices:app.dancers.map((_,i)=>i);
-  const list=rankedForIndices(indices, app.settings.scoreType==='circle'?'circle':'total');
+  const indices=finalIndices();
+
+  let list;
+  if(app.settings.scoreType==='circle'){
+    // 모드1 최종은 각 져지별 결과를 합쳐서 보기 위해 현재 져지 기준 대신 전체 합계로 정렬
+    list=rankedForIndices(indices,'total');
+  }else{
+    list=rankedForIndices(indices,'total');
+  }
+
   const cutoff=list[top-1]?.total;
   return list.map((x,i)=>({...x,cutTie:cutoff!==undefined&&i>=top&&x.total===cutoff}))
              .filter((x,i)=>i<top || x.cutTie);
+}
+
+function rankClass(rank){
+  if(rank===1)return 'gold-rank';
+  if(rank===2)return 'silver-rank';
+  if(rank===3)return 'bronze-rank';
+  return 'dark-rank';
 }
 
 function renderResultItems(targetId, hideScore=false){
@@ -44,12 +67,12 @@ function renderResultItems(targetId, hideScore=false){
     return;
   }
   box.innerHTML=list.map(x=>{
-    const scoreDetail=x.scores.map((s,i)=>`J${i+1}: ${s??'-'}`).join(' · ');
+    const scoreDetail=x.scores.map((s,i)=>`${judgeCircleForIndex(i)}: ${s??'-'}`).join(' · ');
     return `<div class="result-item">
-      <div class="rank">#${x.rank}</div>
+      <div class="rank ${hideScore?rankClass(x.rank):''}">#${x.rank}</div>
       <div>
         <div class="name">${escapeHtml(x.battle||x.name)}</div>
-        <div class="sub">REAL NAME · ${escapeHtml(x.name||'-')} · ORDER ${escapeHtml(x.order)} · CIRCLE ${escapeHtml(x.circle)}</div>
+        <div class="sub">REAL NAME · ${escapeHtml(x.name||'-')} · ORDER ${escapeHtml(x.order)} · GROUP ${escapeHtml(participantGroupLabel(x))}</div>
         ${hideScore?'':`<div class="sub score-line">${scoreDetail}</div>`}
         ${x.cutTie?'<div class="tie-note">커트라인 동점 추가 표기</div>':''}
       </div>
@@ -76,7 +99,7 @@ function renderLiveRows(list, showAvg){
       <div class="lr-rank">#${x.rank}</div>
       <div>
         <div class="lr-name">${escapeHtml(x.battle||x.name||'NO NAME')}</div>
-        <div class="lr-sub">REAL NAME · ${escapeHtml(x.name||'-')} · ORDER ${escapeHtml(x.order)} · CIRCLE ${escapeHtml(x.circle)}</div>
+        <div class="lr-sub">REAL NAME · ${escapeHtml(x.name||'-')} · ORDER ${escapeHtml(x.order)} · GROUP ${escapeHtml(participantGroupLabel(x))}</div>
       </div>
       <div class="lr-score">${scoreText}</div>
       <div class="lr-avg">${showAvg?'AVG '+x.avg.toFixed(1):''}</div>
@@ -101,30 +124,31 @@ function renderLiveRanking(){
     if(node)node.classList.toggle('active',k===view);
   });
 
-  const allowed=circles();
+  const judgeCircles=circles();
 
   if(view==='current'){
     if(app.settings.scoreType==='circle'){
-      const c=app.selectedCircle||allowed[0]||'A';
-      const indices=app.dancers.map((d,i)=>i).filter(i=>app.dancers[i].circle===c);
-      const list=rankedForIndices(indices,'circle');
-      if(info)info.textContent=`현재 모드1 · ${c} CIRCLE · JUDGE 1 기준 실시간 랭킹`;
-      box.innerHTML=`<div class="live-rank-group"><div class="live-rank-group-title"><span>${escapeHtml(c)} CIRCLE</span><span>JUDGE 1</span></div>${renderLiveRows(list,false)}</div>`;
+      const j=app.currentJudge||0;
+      const c=judgeCircleForIndex(j);
+      const indices=app.dancers.map((d,i)=>i).filter(i=>participantGroupLabel(app.dancers[i])===c);
+      const list=rankedForIndices(indices,'circle',j);
+      if(info)info.textContent=`현재 모드1 · ${c}서클 져지 ${judgeNameForIndex(j)} · 담당 ${c}조 랭킹`;
+      box.innerHTML=`<div class="live-rank-group"><div class="live-rank-group-title"><span>${escapeHtml(c)}서클 져지</span><span>${escapeHtml(judgeNameForIndex(j))}</span></div>${renderLiveRows(list,false)}</div>`;
     }else{
       const indices=app.dancers.map((d,i)=>i);
       const list=rankedForIndices(indices,'total');
-      if(info)info.textContent=`현재 모드2 · 전체 서클 · 져지 ${app.settings.judgeCount}명 합계/평균 실시간 랭킹`;
-      box.innerHTML=`<div class="live-rank-group"><div class="live-rank-group-title"><span>ALL CIRCLES TOTAL</span><span>SUM / AVG</span></div>${renderLiveRows(list,true)}</div>`;
+      if(info)info.textContent=`현재 모드2 · 전체 조 · 져지 ${app.settings.judgeCount}명 합계/평균 실시간 랭킹`;
+      box.innerHTML=`<div class="live-rank-group"><div class="live-rank-group-title"><span>ALL GROUPS TOTAL</span><span>SUM / AVG</span></div>${renderLiveRows(list,true)}</div>`;
     }
     return;
   }
 
   if(view==='circle'){
-    if(info)info.textContent='모드1 조회 · 각 서클별 JUDGE 1 점수 기준 랭킹';
-    box.innerHTML=allowed.map(c=>{
-      const indices=app.dancers.map((d,i)=>i).filter(i=>app.dancers[i].circle===c);
-      const list=rankedForIndices(indices,'circle');
-      return `<div class="live-rank-group"><div class="live-rank-group-title"><span>${escapeHtml(c)} CIRCLE</span><span>JUDGE 1</span></div>${renderLiveRows(list,false)}</div>`;
+    if(info)info.textContent='모드1 조회 · 져지별 담당 조 랭킹';
+    box.innerHTML=judgeCircles.map((c,j)=>{
+      const indices=app.dancers.map((d,i)=>i).filter(i=>participantGroupLabel(app.dancers[i])===c);
+      const list=rankedForIndices(indices,'circle',j);
+      return `<div class="live-rank-group"><div class="live-rank-group-title"><span>${escapeHtml(c)}서클 져지</span><span>${escapeHtml(judgeNameForIndex(j))}</span></div>${renderLiveRows(list,false)}</div>`;
     }).join('');
     return;
   }
@@ -132,14 +156,14 @@ function renderLiveRanking(){
   if(view==='total'){
     const list=rankedForIndices(app.dancers.map((d,i)=>i),'total');
     if(info)info.textContent=`모드2 조회 · 져지 ${app.settings.judgeCount}명 점수 합계 + 평균 기준 전체 랭킹`;
-    box.innerHTML=`<div class="live-rank-group"><div class="live-rank-group-title"><span>ALL CIRCLES TOTAL</span><span>SUM / AVG</span></div>${renderLiveRows(list,true)}</div>`;
+    box.innerHTML=`<div class="live-rank-group"><div class="live-rank-group-title"><span>ALL GROUPS TOTAL</span><span>SUM / AVG</span></div>${renderLiveRows(list,true)}</div>`;
   }
 }
 
 function renderResults(){
   const title=app.settings.scoreType==='circle'
-    ? `${app.selectedCircle} CIRCLE · JUDGE 1 · TOP ${app.settings.topCount}`
-    : `ALL CIRCLES · TOTAL / AVG · TOP ${app.settings.topCount}`;
+    ? `JUDGE CIRCLES · TOP ${app.settings.topCount}`
+    : `ALL GROUPS · TOTAL / AVG · TOP ${app.settings.topCount}`;
   el('resultModeTitle').textContent=title;
   el('uploadModeTitle').textContent=title;
   renderResultItems('resultList',false);
@@ -147,15 +171,15 @@ function renderResults(){
 }
 
 function downloadCSV(){
-  const rows=[['rank','order','circle','name','battle_name','total','average','cutline_tie'],
-    ...getFinalRanked().map(x=>[x.rank,x.order,x.circle,x.name,x.battle,x.total,x.avg.toFixed(2),x.cutTie?'Y':''])
+  const rows=[['rank','order','group','name','battle_name','total','average','cutline_tie'],
+    ...getFinalRanked().map(x=>[x.rank,x.order,participantGroupLabel(x),x.name,x.battle,x.total,x.avg.toFixed(2),x.cutTie?'Y':''])
   ];
   const csv=rows.map(r=>r.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(',')).join('\n');
   const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
   a.href=url;
-  a.download=`DISCO_${app.settings.scoreType==='circle'?app.selectedCircle+'_CIRCLE':'ALL'}_TOP_RESULT.csv`;
+  a.download=`DISCO_${app.settings.scoreType==='circle'?'JUDGE_CIRCLE':'ALL'}_TOP_RESULT.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }

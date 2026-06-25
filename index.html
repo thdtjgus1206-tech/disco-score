@@ -26,8 +26,7 @@
         <div class="hero-inner">
           <h1 class="logo">D.I.S.C.O</h1>
           <div class="subtitle">BATTLE SCORE SYSTEM</div>
-          <div class="home-caption">채점할 서클을 선택해줘</div>
-          <div id="homeCircleButtons" class="circle-grid"></div>
+          <button class="btn big hero-start" onclick="startFromHome()">START</button>
         </div>
         <button class="btn ghost small admin-enter" onclick="requireLogin('admin')">ADMIN MODE</button>
       </div>
@@ -65,8 +64,8 @@
         <label>SCORE TYPE</label>
         <div class="mode-row">
           <div id="typeCircle" class="mode active" onclick="setScoreType('circle')">
-            <b>모드1. 한 져지 / 한 서클 TOP</b>
-            <span>져지 1명이 선택한 서클만 심사하고 그 서클 TOP 랭킹을 만듭니다.</span>
+            <b>모드1. 한 져지 / 져지당 TOP</b>
+            <span>각 져지가 담당 서클을 심사하고, 져지별 TOP 랭킹을 만듭니다.</span>
           </div>
           <div id="typeAll" class="mode" onclick="setScoreType('all')">
             <b>모드2. 여러 져지 / 전체 합산·평균 TOP</b>
@@ -77,7 +76,7 @@
 
       <div class="card grid3">
         <div>
-          <label>CIRCLE COUNT A~Z</label>
+          <label>JUDGE CIRCLE COUNT A~Z</label>
           <input id="circleCount" type="number" min="1" max="26" value="3" oninput="syncSettings();renderHomeCircles();renderPreview();saveCurrentEvent()" />
         </div>
         <div>
@@ -92,7 +91,19 @@
           <label>EVENT NAME</label>
           <input id="eventName" type="text" value="D.I.S.C.O" oninput="syncSettings();saveCurrentEvent()" />
         </div>
-        <div class="full hint">서클 개수 3이면 A/B/C, 26이면 A~Z까지 생성됩니다.</div>
+        <div class="full hint">져지 서클 개수 3이면 A/B/C, 26이면 A~Z까지 생성됩니다. 참가자 파일의 A/B/C는 참가자 조로 표시됩니다.</div>
+      </div>
+
+
+      <div class="card">
+        <div class="topbar">
+          <div>
+            <h3 class="card-title">져지 이름 설정</h3>
+            <div class="hint">A서클 져지, B서클 져지처럼 담당 져지 이름을 입력해줘.</div>
+          </div>
+          <button class="btn ghost small" onclick="renderJudgeNameInputs();saveCurrentEvent()">SAVE</button>
+        </div>
+        <div id="judgeNameInputs" class="judge-name-grid"></div>
       </div>
 
       <div class="card live-rank-card">
@@ -105,7 +116,7 @@
         </div>
         <div class="live-tabs">
           <button id="liveTabCurrent" class="live-tab active" onclick="setLiveView('current')">현재 모드</button>
-          <button id="liveTabCircle" class="live-tab" onclick="setLiveView('circle')">서클별 랭킹</button>
+          <button id="liveTabCircle" class="live-tab" onclick="setLiveView('circle')">져지별 랭킹</button>
           <button id="liveTabTotal" class="live-tab" onclick="setLiveView('total')">합계 랭킹</button>
         </div>
         <div id="liveRankInfo" class="hint live-info"></div>
@@ -130,7 +141,7 @@
         </div>
         <div class="list">
           <table>
-            <thead><tr><th>ORDER</th><th>CIRCLE</th><th>NAME</th><th>BATTLE NAME</th></tr></thead>
+            <thead><tr><th>ORDER</th><th>GROUP</th><th>NAME</th><th>BATTLE NAME</th></tr></thead>
             <tbody id="previewBody"></tbody>
           </table>
         </div>
