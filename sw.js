@@ -1,11 +1,15 @@
-const CACHE_NAME = 'disco-live-ranking-v1';
+const CACHE_NAME = 'disco-v2-project-001';
 const URLS = [
   './',
   './index.html',
+  './style.css',
+  './storage.js',
+  './ranking.js',
+  './app.js',
   './manifest.json',
-  './icon-192.png',
-  './icon-512.png',
-  './apple-touch-icon.png',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/apple-touch-icon.png',
   'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
   'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'
 ];
