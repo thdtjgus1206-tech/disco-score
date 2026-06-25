@@ -3,10 +3,12 @@ function scoreValuesFor(index, mode){
   if(mode==='circle') return [arr[0]];
   return arr.slice(0, app.settings.judgeCount||1);
 }
+
 function rankedForIndices(indices, mode='current'){
   const scoreMode = mode==='current'
     ? (app.settings.scoreType==='circle'?'circle':'total')
     : mode;
+
   const list=indices.map(i=>{
     const d=app.dancers[i];
     const used=scoreValuesFor(i, scoreMode);
@@ -23,6 +25,7 @@ function rankedForIndices(indices, mode='current'){
 
   return list.map((x,i)=>({...x,rank:i+1}));
 }
+
 function getFinalRanked(){
   const top=app.settings.topCount;
   const indices=(app.activeIndices&&app.activeIndices.length)?app.activeIndices:app.dancers.map((_,i)=>i);
@@ -31,9 +34,11 @@ function getFinalRanked(){
   return list.map((x,i)=>({...x,cutTie:cutoff!==undefined&&i>=top&&x.total===cutoff}))
              .filter((x,i)=>i<top || x.cutTie);
 }
+
 function renderResultItems(targetId, hideScore=false){
   const list=getFinalRanked();
   const box=el(targetId);
+  if(!box)return;
   if(!list.length){
     box.innerHTML='<div class="empty">결과가 아직 없어.</div>';
     return;
@@ -52,6 +57,7 @@ function renderResultItems(targetId, hideScore=false){
     </div>`;
   }).join('');
 }
+
 function setLiveView(view){
   app.liveView=view;
   ['current','circle','total'].forEach(k=>{
@@ -60,6 +66,7 @@ function setLiveView(view){
   });
   renderLiveRanking();
 }
+
 function renderLiveRows(list, showAvg){
   const entered=list.filter(x=>x.entered>0);
   if(!entered.length)return '<div class="live-empty">아직 입력된 점수가 없어.</div>';
@@ -76,10 +83,12 @@ function renderLiveRows(list, showAvg){
     </div>`;
   }).join('');
 }
+
 function renderLiveRanking(){
   const box=el('liveRankList');
   const info=el('liveRankInfo');
   if(!box)return;
+
   if(!app.dancers.length){
     box.innerHTML='<div class="live-empty">참가자 파일을 먼저 업로드해줘.</div>';
     if(info)info.textContent='참가자 데이터 없음';
@@ -99,12 +108,12 @@ function renderLiveRanking(){
       const c=app.selectedCircle||allowed[0]||'A';
       const indices=app.dancers.map((d,i)=>i).filter(i=>app.dancers[i].circle===c);
       const list=rankedForIndices(indices,'circle');
-      if(info)info.textContent=`모드1 · ${c} CIRCLE · JUDGE 1 기준 실시간 랭킹`;
+      if(info)info.textContent=`현재 모드1 · ${c} CIRCLE · JUDGE 1 기준 실시간 랭킹`;
       box.innerHTML=`<div class="live-rank-group"><div class="live-rank-group-title"><span>${escapeHtml(c)} CIRCLE</span><span>JUDGE 1</span></div>${renderLiveRows(list,false)}</div>`;
     }else{
       const indices=app.dancers.map((d,i)=>i);
       const list=rankedForIndices(indices,'total');
-      if(info)info.textContent=`모드2 · 전체 서클 · 져지 ${app.settings.judgeCount}명 합계/평균 실시간 랭킹`;
+      if(info)info.textContent=`현재 모드2 · 전체 서클 · 져지 ${app.settings.judgeCount}명 합계/평균 실시간 랭킹`;
       box.innerHTML=`<div class="live-rank-group"><div class="live-rank-group-title"><span>ALL CIRCLES TOTAL</span><span>SUM / AVG</span></div>${renderLiveRows(list,true)}</div>`;
     }
     return;
@@ -126,6 +135,7 @@ function renderLiveRanking(){
     box.innerHTML=`<div class="live-rank-group"><div class="live-rank-group-title"><span>ALL CIRCLES TOTAL</span><span>SUM / AVG</span></div>${renderLiveRows(list,true)}</div>`;
   }
 }
+
 function renderResults(){
   const title=app.settings.scoreType==='circle'
     ? `${app.selectedCircle} CIRCLE · JUDGE 1 · TOP ${app.settings.topCount}`
@@ -135,6 +145,7 @@ function renderResults(){
   renderResultItems('resultList',false);
   renderResultItems('uploadResultList',true);
 }
+
 function downloadCSV(){
   const rows=[['rank','order','circle','name','battle_name','total','average','cutline_tie'],
     ...getFinalRanked().map(x=>[x.rank,x.order,x.circle,x.name,x.battle,x.total,x.avg.toFixed(2),x.cutTie?'Y':''])
@@ -148,6 +159,7 @@ function downloadCSV(){
   a.click();
   URL.revokeObjectURL(url);
 }
+
 function saveCanvas(node,name){
   html2canvas(node,{backgroundColor:'#07070a',scale:2,useCORS:true}).then(canvas=>{
     const a=document.createElement('a');
