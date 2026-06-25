@@ -1,4 +1,4 @@
-const CACHE_NAME = 'disco-ipad-full-keypad-v3';
+const CACHE_NAME = 'disco-live-ranking-v1';
 const URLS = [
   './',
   './index.html',

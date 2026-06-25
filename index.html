@@ -12,7 +12,105 @@
 <meta name="theme-color" content="#050506">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="D.I.S.C.O">
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
+/* ===== LIVE RANKING LOGIC ===== */
+function setLiveView(view){
+  app.liveView=view;
+  const ids={current:'liveTabCurrent',circle:'liveTabCircle',total:'liveTabTotal'};
+  Object.keys(ids).forEach(k=>{
+    const el=document.getElementById(ids[k]);
+    if(el)el.classList.toggle('active',k===view);
+  });
+  renderLiveRanking();
+}
+function liveAllowedCircles(){
+  if(typeof circles==='function') return circles();
+  return [...new Set((app.dancers||[]).map(d=>d.circle).filter(Boolean))];
+}
+function liveScoreValues(index, mode){
+  const arr=app.scores[index]||[];
+  if(mode==='circle') return [arr[0]];
+  return arr.slice(0, app.settings.judgeCount||1);
+}
+function liveRankForIndices(indices, mode){
+  const list=indices.map(i=>{
+    const d=app.dancers[i];
+    const used=liveScoreValues(i, mode);
+    const valid=used.filter(v=>v!==null&&v!==undefined&&v!==''&&!isNaN(parseFloat(v)));
+    const total=valid.reduce((s,v)=>s+(parseFloat(v)||0),0);
+    const avg=valid.length?total/valid.length:0;
+    return {...d,total,avg,entered:valid.length,needed:used.length,index:i};
+  }).filter(x=>x.entered>0);
+  list.sort((a,b)=>{
+    if(b.total!==a.total)return b.total-a.total;
+    if(typeof orderCompare==='function')return orderCompare(a,b);
+    return String(a.order).localeCompare(String(b.order));
+  });
+  return list.map((x,i)=>({...x,rank:i+1}));
+}
+function renderLiveRows(list, showAvg){
+  if(!list.length)return '<div class="live-empty">아직 입력된 점수가 없어.</div>';
+  return list.map(x=>{
+    const displayName=escapeHtml(x.battle||x.name||'NO NAME');
+    const sub=x.name?`REAL NAME · ${escapeHtml(x.name)} · ORDER ${escapeHtml(x.order)} · CIRCLE ${escapeHtml(x.circle)}`:`ORDER ${escapeHtml(x.order)} · CIRCLE ${escapeHtml(x.circle)}`;
+    const scoreText=x.entered<x.needed?`${x.total} <span style="color:var(--muted);font-size:11px">(${x.entered}/${x.needed})</span>`:`${x.total}`;
+    return `<div class="live-rank-row">
+      <div class="lr-rank">#${x.rank}</div>
+      <div><div class="lr-name">${displayName}</div><div class="lr-sub">${sub}</div></div>
+      <div class="lr-score">${scoreText}</div>
+      <div class="lr-avg">${showAvg?'AVG '+x.avg.toFixed(1):''}</div>
+    </div>`;
+  }).join('');
+}
+function renderLiveRanking(){
+  const box=document.getElementById('liveRankList');
+  const info=document.getElementById('liveRankInfo');
+  if(!box)return;
+  if(!app.dancers||!app.dancers.length){
+    box.innerHTML='<div class="live-empty">참가자 파일을 먼저 업로드해줘.</div>';
+    if(info)info.textContent='참가자 데이터 없음';
+    return;
+  }
+  const view=app.liveView||'current';
+  const ids={current:'liveTabCurrent',circle:'liveTabCircle',total:'liveTabTotal'};
+  Object.keys(ids).forEach(k=>{
+    const el=document.getElementById(ids[k]);
+    if(el)el.classList.toggle('active',k===view);
+  });
+  const allowed=liveAllowedCircles();
+  if(view==='current'){
+    if(app.settings.scoreType==='circle'){
+      const c=app.selectedCircle||allowed[0]||'A';
+      const indices=app.dancers.map((d,i)=>i).filter(i=>app.dancers[i].circle===c);
+      const list=liveRankForIndices(indices,'circle');
+      if(info)info.textContent=`모드1 · ${c} CIRCLE · JUDGE 1 기준 실시간 랭킹`;
+      box.innerHTML=`<div class="live-rank-group"><div class="live-rank-group-title"><span>${escapeHtml(c)} CIRCLE</span><span>JUDGE 1</span></div>${renderLiveRows(list,false)}</div>`;
+    }else{
+      const indices=app.dancers.map((d,i)=>i);
+      const list=liveRankForIndices(indices,'total');
+      if(info)info.textContent=`모드2 · 전체 서클 · 져지 ${app.settings.judgeCount}명 합계/평균 실시간 랭킹`;
+      box.innerHTML=`<div class="live-rank-group"><div class="live-rank-group-title"><span>ALL CIRCLES TOTAL</span><span>SUM / AVG</span></div>${renderLiveRows(list,true)}</div>`;
+    }
+    return;
+  }
+  if(view==='circle'){
+    if(info)info.textContent='모드1 조회 · 각 서클별 JUDGE 1 점수 기준 랭킹';
+    box.innerHTML=allowed.map(c=>{
+      const indices=app.dancers.map((d,i)=>i).filter(i=>app.dancers[i].circle===c);
+      const list=liveRankForIndices(indices,'circle');
+      return `<div class="live-rank-group"><div class="live-rank-group-title"><span>${escapeHtml(c)} CIRCLE</span><span>JUDGE 1</span></div>${renderLiveRows(list,false)}</div>`;
+    }).join('');
+    return;
+  }
+  if(view==='total'){
+    const indices=app.dancers.map((d,i)=>i);
+    const list=liveRankForIndices(indices,'total');
+    if(info)info.textContent=`모드2 조회 · 져지 ${app.settings.judgeCount}명 점수 합계 + 평균 기준 전체 랭킹`;
+    box.innerHTML=`<div class="live-rank-group"><div class="live-rank-group-title"><span>ALL CIRCLES TOTAL</span><span>SUM / AVG</span></div>${renderLiveRows(list,true)}</div>`;
+  }
+}
+
+</script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap');
@@ -956,6 +1054,31 @@ td{
   }
 }
 
+
+/* ===== ADMIN LIVE RANKING ===== */
+.live-rank-card{border-color:rgba(67,215,255,.24)}
+.live-tabs{display:flex;gap:8px;overflow:auto;padding-bottom:6px}
+.live-tab{flex:0 0 auto;border:1px solid rgba(255,60,168,.28);border-radius:999px;background:rgba(255,255,255,.055);color:#fff;padding:10px 14px;font-weight:1000;letter-spacing:.03em}
+.live-tab.active{background:linear-gradient(135deg,#ff3ca8,#3156ff);border-color:transparent;box-shadow:0 0 22px rgba(255,60,168,.22)}
+.live-rank-list{border:1px solid rgba(255,255,255,.10);border-radius:20px;overflow:hidden;background:rgba(0,0,0,.22)}
+.live-rank-group{border-bottom:1px solid rgba(255,255,255,.12)}
+.live-rank-group:last-child{border-bottom:0}
+.live-rank-group-title{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;background:linear-gradient(90deg,rgba(255,60,168,.18),rgba(49,86,255,.10));font-weight:1000;letter-spacing:.05em}
+.live-rank-row{display:grid;grid-template-columns:58px 1fr auto auto;gap:10px;align-items:center;padding:12px 14px;border-top:1px solid rgba(255,255,255,.08)}
+.lr-rank{font-family:'Archivo Black',Impact,sans-serif;color:#ffcc4d;font-size:22px}
+.lr-name{font-weight:1000;font-size:16px}
+.lr-sub{color:var(--muted);font-size:12px;margin-top:3px}
+.lr-score{font-family:'Archivo Black',Impact,sans-serif;font-size:20px;color:#fff;text-align:right}
+.lr-avg{font-size:13px;color:var(--muted);min-width:54px;text-align:right}
+.live-empty{padding:18px;text-align:center;color:var(--muted)}
+@media(max-width:760px){
+  .live-tabs{display:grid;grid-template-columns:1fr}
+  .live-tab{width:100%}
+  .live-rank-row{grid-template-columns:46px 1fr auto;padding:11px 10px}
+  .lr-avg{display:none}
+  .lr-score{font-size:18px}
+}
+
 </style>
 </head>
 <body>
@@ -1011,7 +1134,25 @@ td{
     <div class="full hint">서클 개수 3이면 A/B/C, 26이면 A~Z까지 생성됩니다.</div>
   </div>
 
-  <div class="card">
+  
+<div class="card live-rank-card">
+  <div class="topbar">
+    <div>
+      <h3 style="margin:0;font-size:20px">실시간 랭킹 조회</h3>
+      <div class="hint">점수가 입력되는 순간 자동 반영됩니다.</div>
+    </div>
+    <button class="btn ghost small" onclick="renderLiveRanking()">REFRESH</button>
+  </div>
+  <div class="live-tabs">
+    <button id="liveTabCurrent" class="live-tab active" onclick="setLiveView('current')">현재 모드</button>
+    <button id="liveTabCircle" class="live-tab" onclick="setLiveView('circle')">서클별 랭킹</button>
+    <button id="liveTabTotal" class="live-tab" onclick="setLiveView('total')">합계 랭킹</button>
+  </div>
+  <div id="liveRankInfo" class="hint" style="margin:10px 0 12px"></div>
+  <div id="liveRankList" class="live-rank-list"></div>
+</div>
+
+<div class="card">
     <label>PARTICIPANT FILE</label>
     <div class="upload">
       <p style="margin:0 0 10px;font-weight:900;font-size:18px">엑셀 / CSV 참가자 파일 업로드</p>
@@ -1086,7 +1227,7 @@ td{
 </main>
 
 <script>
-const app={settings:{scoreType:'circle',circleCount:3,judgeCount:3,topCount:6,eventName:'D.I.S.C.O'},dancers:[],scores:{},currentJudge:0,currentIndex:0,input:'',selectedCircle:null,activeIndices:[],eventId:null};
+const app={settings:{scoreType:'circle',circleCount:3,judgeCount:3,topCount:6,eventName:'D.I.S.C.O'},dancers:[],scores:{},currentJudge:0,currentIndex:0,input:'',selectedCircle:null,activeIndices:[],liveView:'current',eventId:null,liveView:'current'};
 
 let isLoggedIn=false,pendingAction=null;
 const STORE='DISCO_SCORE_EVENTS_V2';
@@ -1283,7 +1424,7 @@ function resetPin(){
 function cancelLogin(){pendingAction=null;go('home');}
 function logout(){isLoggedIn=false;go('home');}
 
-function go(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));$(id).classList.add('active');if(id==='home')renderHomeCircles();if(id==='score')renderScore();if(id==='results')renderResults();if(id==='mypage')renderHistory()}
+function go(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));$(id).classList.add('active');if(id==='home')renderHomeCircles();if(id==='score')renderScore();if(id==='results')renderResults();if(id==='admin')renderLiveRanking();if(id==='admin')renderLiveRanking();if(id==='mypage')renderHistory()}
 
 function renderHomeCircles(){const box=$('homeCircleButtons');if(!box)return;const allowed=circles();if(app.settings.scoreType==='all'){box.innerHTML=`<button class="btn big circle-btn" onclick="chooseAll()">ALL CIRCLES</button>`;return}box.innerHTML=allowed.map(c=>`<button class="btn big circle-btn" onclick="chooseCircle('${escapeJs(c)}')">${escapeHtml(c)} CIRCLE</button>`).join('')}
 function chooseCircle(c){app.selectedCircle=c;requireLogin('score')}function chooseAll(){app.selectedCircle=null;requireLogin('score')}
@@ -1297,7 +1438,7 @@ function renderJudgeTabs(){const tabs=$('judgeTabs');if(!tabs)return;tabs.innerH
 function renderScore(){syncSettings();renderJudgeTabs();const indices=app.activeIndices||[],origIdx=indices[app.currentIndex],d=origIdx!==undefined?app.dancers[origIdx]:null;$('bar').style.width=(((app.currentIndex+1)/(indices.length||1))*100)+'%';$('circleTag').textContent=app.settings.scoreType==='circle'?(app.selectedCircle+' CIRCLE'):'ALL CIRCLES';if(!d){$('dancerName').textContent='NO DANCER';$('battleName').textContent='참가자를 불러와줘.';$('scoreDisplay').textContent='0';return}$('orderBadge').textContent='ORDER '+d.order;$('circleBadge').textContent='CIRCLE '+d.circle;$('judgeBadge').textContent='JUDGE '+(app.currentJudge+1);$('dancerName').textContent=d.battle||d.name;$('battleName').textContent=d.name?('REAL NAME · '+d.name):'';const saved=app.scores[origIdx]?.[app.currentJudge];$('scoreDisplay').textContent=app.input||(saved!==null&&saved!==undefined?saved:'0');$('nextBtn').classList.toggle('hidden',!(saved!==null&&saved!==undefined))}
 function tap(v){if(v==='.'&&app.input.includes('.'))return;if(app.input.length>=5)return;if(app.input==='0'&&v!=='.')app.input='';app.input+=v;$('scoreDisplay').textContent=app.input;$('nextBtn').classList.add('hidden')}
 function backspace(){app.input=app.input.slice(0,-1);$('scoreDisplay').textContent=app.input||'0';$('nextBtn').classList.add('hidden')}function clearScore(){app.input='';$('scoreDisplay').textContent='0';$('nextBtn').classList.add('hidden')}
-function saveAndNext(){const indices=app.activeIndices||[],origIdx=indices[app.currentIndex],value=parseFloat(app.input||$('scoreDisplay').textContent);if(isNaN(value)){alert('점수를 입력해줘.');return}app.scores[origIdx][app.currentJudge]=value;app.input='';$('nextBtn').classList.remove('hidden');saveCurrentEvent()}
+function saveAndNext(){const indices=app.activeIndices||[],origIdx=indices[app.currentIndex],value=parseFloat(app.input||$('scoreDisplay').textContent);if(isNaN(value)){alert('점수를 입력해줘.');return}app.scores[origIdx][app.currentJudge]=value;app.input='';$('nextBtn').classList.remove('hidden');saveCurrentEvent();renderLiveRanking()}
 function nextDancer(){const indices=app.activeIndices||[];if(app.currentIndex<indices.length-1){app.currentIndex++;app.input='';renderScore()}else if(app.settings.scoreType==='all'&&app.currentJudge<app.settings.judgeCount-1){app.currentJudge++;app.currentIndex=0;app.input='';renderScore()}else showResults()}
 function prevDancer(){if(app.currentIndex>0)app.currentIndex--;else if(app.currentJudge>0){app.currentJudge--;app.currentIndex=(app.activeIndices||[]).length-1}app.input='';renderScore()}
 function showResults(){renderResults();saveCurrentEvent();go('results')}
