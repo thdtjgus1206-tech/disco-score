@@ -90,3 +90,11 @@ values ('DPP_MAIN', 'circle', 3, 16)
 on conflict (event_id) do nothing;
 
 -- Realtime은 Publications 화면에서 dpp_settings도 ON 해줘.
+
+
+-- DPP v4.3 judge PIN/name sync
+alter table public.dpp_settings add column if not exists judges jsonb default '{}'::jsonb;
+
+update public.dpp_settings
+set judges = coalesce(judges, '{}'::jsonb)
+where event_id = 'DPP_MAIN';

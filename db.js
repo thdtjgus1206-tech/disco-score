@@ -14,6 +14,7 @@ async function saveRemoteSettings(){
     scoring_mode:currentMode(),
     judge_count:DPP.settings.judgeCount,
     top_count:DPP.settings.topCount,
+    judges:DPP.settings.judges,
     updated_at:new Date().toISOString()
   },{onConflict:'event_id'});
   if(error)console.error(error);
@@ -24,6 +25,9 @@ async function applyRemoteSettings(){
   DPP.settings.scoringMode=s.scoring_mode||DPP.settings.scoringMode;
   DPP.settings.judgeCount=Number(s.judge_count||DPP.settings.judgeCount);
   DPP.settings.topCount=Number(s.top_count||DPP.settings.topCount);
+  if(s.judges && typeof s.judges==='object'){
+    DPP.settings.judges={...DPP.settings.judges,...s.judges};
+  }
   saveLocalSettings();
 }
 
