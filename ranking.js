@@ -1,54 +1,135 @@
-function scoreValuesFor(index, mode){
-  const arr=app.scores[index]||[];
-  if(mode==='circle') return [arr[app.currentJudge] ?? arr[0]];
-  return arr.slice(0, app.settings.judgeCount||1);
+
+function getParticipantKey(row){return row.participant_order}
+
+function calculateJudgeRank(circle){
+  return app.scores
+    .filter(s=>s.judge_circle===circle && s.score!==null && s.score!==undefined)
+    .sort((a,b)=>Number(b.score)-Number(a.score) || String(a.participant_order).localeCompare(String(b.participant_order),'ko'))
+    .map((x,i)=>({...x,rank:i+1}));
 }
 
-function scoreValuesForJudge(index, judgeIndex){
-  const arr=app.scores[index]||[];
-  return [arr[judgeIndex]];
-}
-
-function rankedForIndices(indices, mode='current', judgeIndex=null){
-  const list=indices.map(i=>{
-    const d=app.dancers[i];
-    const used = judgeIndex===null ? scoreValuesFor(i, mode) : scoreValuesForJudge(i, judgeIndex);
-    const valid=used.filter(v=>v!==null&&v!==undefined&&v!==''&&!isNaN(parseFloat(v)));
-    const total=valid.reduce((s,v)=>s+(parseFloat(v)||0),0);
-    const avg=valid.length?total/valid.length:0;
-    return {...d,total,avg,scores:used,entered:valid.length,needed:used.length,index:i};
+function calculateTotalRank(){
+  const map={};
+  app.scores.forEach(s=>{
+    const key=getParticipantKey(s);
+    if(!key)return;
+    if(!map[key]){
+      map[key]={
+        participant_order:s.participant_order,
+        participant_group:s.participant_group,
+        participant_name:s.participant_name,
+        battle_name:s.battle_name,
+        total:0,
+        count:0
+      };
+    }
+    if(s.score!==null && s.score!==undefined){
+      map[key].total+=Number(s.score)||0;
+      map[key].count+=1;
+    }
   });
+  return Object.values(map)
+    .filter(x=>x.count>0)
+    .map(x=>({...x,avg:x.total/x.count}))
+    .sort((a,b)=>b.total-a.total || String(a.participant_order).localeCompare(String(b.participant_order),'ko'))
+    .map((x,i)=>({...x,rank:i+1}));
+}
 
-  list.sort((a,b)=>{
-    if(b.total!==a.total)return b.total-a.total;
-    return orderCompare(a,b);
+function setRankView(view){
+  app.rankView=view;
+  ['Judge','Total','Log'].forEach(k=>{
+    const btn=document.getElementById('rankTab'+k);
+    if(btn)btn.classList.toggle('active',view===k.toLowerCase());
   });
-
-  return list.map((x,i)=>({...x,rank:i+1}));
+  renderRankingPanel();
 }
 
-function finalIndices(){
-  if(app.settings.scoreType==='circle'){
-    return app.dancers.map((d,i)=>i);
+function renderRankingPanel(){
+  const box=document.getElementById('rankingList');
+  const info=document.getElementById('rankingInfo');
+  if(!box)return;
+
+  if(app.rankView==='log'){
+    if(info)info.textContent='최근 입력 로그';
+    const rows=(app.logs||[]).slice(0,40);
+    box.innerHTML=rows.length?rows.map(s=>`
+      <div class="live-rank-row">
+        <div class="lr-rank">${escapeHtml(s.judge_circle||'-')}</div>
+        <div>
+          <div class="lr-name">${escapeHtml(s.battle_name||s.participant_name||'-')}</div>
+          <div class="lr-sub">${escapeHtml(s.participant_order||'')} · ${escapeHtml(s.participant_group||'')} GROUP · ${escapeHtml(s.judge_name||'')}</div>
+        </div>
+        <div class="lr-score">${s.score ?? '-'}</div>
+        <div class="lr-avg">${new Date(s.created_at).toLocaleTimeString('ko-KR')}</div>
+      </div>
+    `).join(''):'<div class="live-empty">아직 입력 로그가 없어.</div>';
+    return;
   }
-  return (app.activeIndices&&app.activeIndices.length)?app.activeIndices:app.dancers.map((_,i)=>i);
+
+  if(app.rankView==='total'){
+    if(info)info.textContent='전체 합계 랭킹';
+    const rows=calculateTotalRank().slice(0,app.settings.topCount);
+    box.innerHTML=rows.length?`
+      <div class="live-rank-group">
+        <div class="live-rank-group-title"><span>TOTAL RANKING</span><span>SUM / AVG</span></div>
+        ${rows.map(x=>`
+          <div class="live-rank-row">
+            <div class="lr-rank">#${x.rank}</div>
+            <div>
+              <div class="lr-name">${escapeHtml(x.battle_name||x.participant_name||'-')}</div>
+              <div class="lr-sub">${escapeHtml(x.participant_order)} · ${escapeHtml(x.participant_group)} GROUP · ${x.count} scores</div>
+            </div>
+            <div class="lr-score">${x.total}</div>
+            <div class="lr-avg">AVG ${x.avg.toFixed(1)}</div>
+          </div>
+        `).join('')}
+      </div>
+    `:'<div class="live-empty">아직 입력된 점수가 없어.</div>';
+    return;
+  }
+
+  if(info)info.textContent='져지별 담당 조 랭킹';
+  box.innerHTML=getJudgeCircles().map(c=>{
+    const judge=app.settings.judges[c] || {};
+    const rows=calculateJudgeRank(c).slice(0,app.settings.topCount);
+    return `<div class="live-rank-group">
+      <div class="live-rank-group-title"><span>${c} JUDGE</span><span>${escapeHtml(judge.name||`${c} JUDGE`)}</span></div>
+      ${rows.length?rows.map(x=>`
+        <div class="live-rank-row">
+          <div class="lr-rank">#${x.rank}</div>
+          <div>
+            <div class="lr-name">${escapeHtml(x.battle_name||x.participant_name||'-')}</div>
+            <div class="lr-sub">${escapeHtml(x.participant_order)} · ${escapeHtml(x.participant_group)} GROUP</div>
+          </div>
+          <div class="lr-score">${x.score}</div>
+          <div class="lr-avg"></div>
+        </div>
+      `).join(''):'<div class="live-empty">아직 입력된 점수가 없어.</div>'}
+    </div>`;
+  }).join('');
 }
 
-function getFinalRanked(){
-  const top=app.settings.topCount;
-  const indices=finalIndices();
+function renderProgress(){
+  const box=document.getElementById('progressList');
+  if(!box)return;
+  box.innerHTML=getJudgeCircles().map(c=>{
+    const total=app.scores.filter(s=>s.judge_circle===c && s.participant_group===c).length;
+    const done=app.scores.filter(s=>s.judge_circle===c && s.participant_group===c && s.score!==null && s.score!==undefined).length;
+    const pct=total?Math.round(done/total*100):0;
+    const judge=app.settings.judges[c] || {};
+    return `<div class="progress-item">
+      <div class="progress-head"><b>${c} JUDGE</b><span>${escapeHtml(judge.name||'')}</span><em>${done}/${total}</em></div>
+      <div class="progress-line"><div style="width:${pct}%"></div></div>
+    </div>`;
+  }).join('');
+}
 
-  let list;
-  if(app.settings.scoreType==='circle'){
-    // 모드1 최종은 각 져지별 결과를 합쳐서 보기 위해 현재 져지 기준 대신 전체 합계로 정렬
-    list=rankedForIndices(indices,'total');
-  }else{
-    list=rankedForIndices(indices,'total');
-  }
-
-  const cutoff=list[top-1]?.total;
-  return list.map((x,i)=>({...x,cutTie:cutoff!==undefined&&i>=top&&x.total===cutoff}))
-             .filter((x,i)=>i<top || x.cutTie);
+function renderResults(){
+  const rows=calculateTotalRank().slice(0,app.settings.topCount);
+  const full=document.getElementById('resultList');
+  const upload=document.getElementById('uploadResultList');
+  if(full)full.innerHTML=renderResultRows(rows,false);
+  if(upload)upload.innerHTML=renderResultRows(rows,true);
 }
 
 function rankClass(rank){
@@ -58,242 +139,30 @@ function rankClass(rank){
   return 'dark-rank';
 }
 
-function renderResultItems(targetId, hideScore=false){
-  const list=getFinalRanked();
-  const box=el(targetId);
-  if(!box)return;
-  if(!list.length){
-    box.innerHTML='<div class="empty">결과가 아직 없어.</div>';
-    return;
-  }
-  box.innerHTML=list.map(x=>{
-    const scoreDetail=x.scores.map((s,i)=>`${judgeCircleForIndex(i)}: ${s??'-'}`).join(' · ');
-    return `<div class="result-item">
+function renderResultRows(rows,hideScore){
+  if(!rows.length)return '<div class="empty">아직 결과가 없어.</div>';
+  return rows.map(x=>`
+    <div class="result-item">
       <div class="rank ${hideScore?rankClass(x.rank):''}">#${x.rank}</div>
       <div>
-        <div class="name">${escapeHtml(x.battle||x.name)}</div>
-        <div class="sub">REAL NAME · ${escapeHtml(x.name||'-')} · ORDER ${escapeHtml(x.order)} · GROUP ${escapeHtml(participantGroupLabel(x))}</div>
-        ${hideScore?'':`<div class="sub score-line">${scoreDetail}</div>`}
-        ${x.cutTie?'<div class="tie-note">커트라인 동점 추가 표기</div>':''}
+        <div class="name">${escapeHtml(x.battle_name||x.participant_name||'-')}</div>
+        <div class="sub">REAL NAME · ${escapeHtml(x.participant_name||'-')} · ORDER ${escapeHtml(x.participant_order)} · GROUP ${escapeHtml(x.participant_group)}</div>
       </div>
       ${hideScore?'':`<div class="score">${x.total}</div><div class="avg">${x.avg.toFixed(1)}</div>`}
-    </div>`;
-  }).join('');
-}
-
-function setLiveView(view){
-  app.liveView=view;
-  ['current','circle','total'].forEach(k=>{
-    const node=el('liveTab'+capitalize(k));
-    if(node)node.classList.toggle('active',k===view);
-  });
-  renderLiveRanking();
-}
-
-function renderLiveRows(list, showAvg){
-  const entered=list.filter(x=>x.entered>0);
-  if(!entered.length)return '<div class="live-empty">아직 입력된 점수가 없어.</div>';
-  return entered.map(x=>{
-    const scoreText=x.entered<x.needed?`${x.total} <span style="color:var(--muted);font-size:11px">(${x.entered}/${x.needed})</span>`:`${x.total}`;
-    return `<div class="live-rank-row">
-      <div class="lr-rank">#${x.rank}</div>
-      <div>
-        <div class="lr-name">${escapeHtml(x.battle||x.name||'NO NAME')}</div>
-        <div class="lr-sub">REAL NAME · ${escapeHtml(x.name||'-')} · ORDER ${escapeHtml(x.order)} · GROUP ${escapeHtml(participantGroupLabel(x))}</div>
-      </div>
-      <div class="lr-score">${scoreText}</div>
-      <div class="lr-avg">${showAvg?'AVG '+x.avg.toFixed(1):''}</div>
-    </div>`;
-  }).join('');
-}
-
-function renderLiveRanking(){
-  const box=el('liveRankList');
-  const info=el('liveRankInfo');
-  if(!box)return;
-
-  if(!app.dancers.length){
-    box.innerHTML='<div class="live-empty">참가자 파일을 먼저 업로드해줘.</div>';
-    if(info)info.textContent='참가자 데이터 없음';
-    return;
-  }
-
-  const view=app.liveView||'current';
-  ['current','circle','total'].forEach(k=>{
-    const node=el('liveTab'+capitalize(k));
-    if(node)node.classList.toggle('active',k===view);
-  });
-
-  const judgeCircles=circles();
-
-  if(view==='current'){
-    if(app.settings.scoreType==='circle'){
-      const j=app.currentJudge||0;
-      const c=judgeCircleForIndex(j);
-      const indices=app.dancers.map((d,i)=>i).filter(i=>participantGroupLabel(app.dancers[i])===c);
-      const list=rankedForIndices(indices,'circle',j);
-      if(info)info.textContent=`현재 모드1 · ${c}서클 져지 ${judgeNameForIndex(j)} · 담당 ${c}조 랭킹`;
-      box.innerHTML=`<div class="live-rank-group"><div class="live-rank-group-title"><span>${escapeHtml(c)}서클 져지</span><span>${escapeHtml(judgeNameForIndex(j))}</span></div>${renderLiveRows(list,false)}</div>`;
-    }else{
-      const indices=app.dancers.map((d,i)=>i);
-      const list=rankedForIndices(indices,'total');
-      if(info)info.textContent=`현재 모드2 · 전체 조 · 져지 ${app.settings.judgeCount}명 합계/평균 실시간 랭킹`;
-      box.innerHTML=`<div class="live-rank-group"><div class="live-rank-group-title"><span>ALL GROUPS TOTAL</span><span>SUM / AVG</span></div>${renderLiveRows(list,true)}</div>`;
-    }
-    return;
-  }
-
-  if(view==='circle'){
-    if(info)info.textContent='모드1 조회 · 져지별 담당 조 랭킹';
-    box.innerHTML=judgeCircles.map((c,j)=>{
-      const indices=app.dancers.map((d,i)=>i).filter(i=>participantGroupLabel(app.dancers[i])===c);
-      const list=rankedForIndices(indices,'circle',j);
-      return `<div class="live-rank-group"><div class="live-rank-group-title"><span>${escapeHtml(c)}서클 져지</span><span>${escapeHtml(judgeNameForIndex(j))}</span></div>${renderLiveRows(list,false)}</div>`;
-    }).join('');
-    return;
-  }
-
-  if(view==='total'){
-    const list=rankedForIndices(app.dancers.map((d,i)=>i),'total');
-    if(info)info.textContent=`모드2 조회 · 져지 ${app.settings.judgeCount}명 점수 합계 + 평균 기준 전체 랭킹`;
-    box.innerHTML=`<div class="live-rank-group"><div class="live-rank-group-title"><span>ALL GROUPS TOTAL</span><span>SUM / AVG</span></div>${renderLiveRows(list,true)}</div>`;
-  }
-}
-
-function renderResults(){
-  const title=app.settings.scoreType==='circle'
-    ? `JUDGE CIRCLES · TOP ${app.settings.topCount}`
-    : `ALL GROUPS · TOTAL / AVG · TOP ${app.settings.topCount}`;
-  el('resultModeTitle').textContent=title;
-  el('uploadModeTitle').textContent=title;
-  renderResultItems('resultList',false);
-  renderResultItems('uploadResultList',true);
+    </div>
+  `).join('');
 }
 
 function downloadCSV(){
-  const rows=[['rank','order','group','name','battle_name','total','average','cutline_tie'],
-    ...getFinalRanked().map(x=>[x.rank,x.order,participantGroupLabel(x),x.name,x.battle,x.total,x.avg.toFixed(2),x.cutTie?'Y':''])
+  const rows=[['rank','order','group','name','battle_name','total','average','count'],
+    ...calculateTotalRank().map(x=>[x.rank,x.participant_order,x.participant_group,x.participant_name,x.battle_name,x.total,x.avg.toFixed(2),x.count])
   ];
   const csv=rows.map(r=>r.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(',')).join('\n');
   const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
   a.href=url;
-  a.download=`DISCO_${app.settings.scoreType==='circle'?'JUDGE_CIRCLE':'ALL'}_TOP_RESULT.csv`;
+  a.download='DPP_RESULTS.csv';
   a.click();
   URL.revokeObjectURL(url);
 }
-
-function saveCanvas(node,name){
-  html2canvas(node,{backgroundColor:'#07070a',scale:2,useCORS:true}).then(canvas=>{
-    const a=document.createElement('a');
-    a.href=canvas.toDataURL('image/png');
-    a.download=name;
-    a.click();
-  });
-}
-function saveResultImage(){saveCanvas(el('resultBoard'),'DISCO_FULL_SCORE_RESULT.png')}
-function saveUploadImage(){saveCanvas(el('uploadBoard'),'DISCO_UPLOAD_NO_SCORE_RESULT.png')}
-
-/* ===== V2.6 MANUAL TOP16 BRACKET ===== */
-function renderManualSeedInputs(){
-  const box=el('manualSeedInputs');
-  if(!box)return;
-  box.innerHTML=Array.from({length:16},(_,i)=>{
-    const num=i+1;
-    const val=localStorage.getItem(`DISCO_BRACKET_SEED_${num}`)||'';
-    return `<div class="manual-seed-box">
-      <label>SEED ${num}</label>
-      <input id="seedInput${num}" value="${escapeHtml(val)}" placeholder="시드 ${num}" oninput="localStorage.setItem('DISCO_BRACKET_SEED_${num}',this.value);generateBracket()">
-    </div>`;
-  }).join('');
-}
-function getManualSeeds(){
-  return Array.from({length:16},(_,i)=>{
-    const num=i+1;
-    const input=el(`seedInput${num}`);
-    const name=(input?.value||localStorage.getItem(`DISCO_BRACKET_SEED_${num}`)||'').trim();
-    return {seed:num,name:name||`SEED ${num}`};
-  });
-}
-function bracketPairs(){
-  const seeds=getManualSeeds();
-  const pairs=[];
-  for(let i=0;i<16;i+=2){
-    pairs.push([seeds[i],seeds[i+1]]);
-  }
-  return pairs;
-}
-function renderManualBracketMatch(pair,index){
-  const [a,b]=pair;
-  return `<div class="bracket-match">
-    <div class="match-no">M${index+1}</div>
-    <div class="seed-player">
-      <div class="seed-name">${escapeHtml(a.name)}</div>
-      <div class="seed-sub">SEED ${a.seed}</div>
-    </div>
-    <div class="vs">VS</div>
-    <div class="seed-player">
-      <div class="seed-name">${escapeHtml(b.name)}</div>
-      <div class="seed-sub">SEED ${b.seed}</div>
-    </div>
-  </div>`;
-}
-function generateBracket(){
-  const board=el('bracketBoard');
-  if(!board)return;
-  const pairs=bracketPairs();
-  board.innerHTML=`
-    <div class="bracket-round">
-      <div class="bracket-round-title">TOP 16</div>
-      ${pairs.map((p,i)=>renderManualBracketMatch(p,i)).join('')}
-    </div>
-  `;
-  renderBracketStory();
-}
-function renderStoryPlayer(seed){
-  return `<div class="story-player">
-    <div class="story-player-name">${escapeHtml(seed.name)}</div>
-    <div class="story-player-seed">SEED ${seed.seed}</div>
-  </div>`;
-}
-function renderBracketStory(){
-  const content=el('bracketStoryContent');
-  if(!content)return;
-  const pairs=bracketPairs();
-  content.innerHTML=`
-    <div class="story-top16-grid">
-      ${pairs.map(pair=>`<div class="story-match">
-        ${renderStoryPlayer(pair[0])}
-        <div class="story-vs">VS</div>
-        ${renderStoryPlayer(pair[1])}
-      </div>`).join('')}
-    </div>
-  `;
-}
-function saveBracketStoryImage(){
-  generateBracket();
-  setTimeout(()=>{
-    const node=el('bracketStoryBoard');
-    html2canvas(node,{backgroundColor:'#02030a',scale:2,useCORS:true,width:1080,height:1920}).then(canvas=>{
-      const a=document.createElement('a');
-      a.href=canvas.toDataURL('image/png');
-      a.download='DISCO_TOP16_BRACKET_STORY.png';
-      a.click();
-    });
-  },250);
-}
-function clearBracketSeeds(){
-  if(!confirm('시드 입력값을 모두 지울까?'))return;
-  for(let i=1;i<=16;i++){
-    localStorage.removeItem(`DISCO_BRACKET_SEED_${i}`);
-  }
-  renderManualSeedInputs();
-  generateBracket();
-}
-window.addEventListener('load',()=>{
-  setTimeout(()=>{
-    renderManualSeedInputs();
-    generateBracket();
-  },150);
-});

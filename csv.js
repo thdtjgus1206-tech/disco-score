@@ -1,0 +1,107 @@
+
+function clean(s){return String(s??'').replace(/\uFEFF/g,'').trim()}
+function isOrderToken(s){return /^[A-Z]-(?:나-)?\d+$/i.test(clean(s).replace(/\s+/g,''))}
+function fixOrder(s){return clean(s).replace(/\s+/g,'').replace(/^([a-z])-/,(_,a)=>a.toUpperCase()+'-')}
+function orderGroup(order){const m=clean(order).match(/^([A-Z])/i);return m?m[1].toUpperCase():''}
+function isPhoneLike(s){s=clean(s);return /^(\+?\d[\d\s\-–]{6,}|\d{4,})$/.test(s)}
+function isContactLike(s){s=clean(s);return isPhoneLike(s)||s.includes('@')||s.includes('.com')}
+
+function decodeCsvBuffer(buffer){
+  const u8=new Uint8Array(buffer);
+  if(u8[0]===0xEF&&u8[1]===0xBB&&u8[2]===0xBF)return new TextDecoder('utf-8').decode(u8);
+  const utf8=new TextDecoder('utf-8',{fatal:false}).decode(u8);
+  const bad=(utf8.match(/\uFFFD/g)||[]).length;
+  return bad>0?new TextDecoder('euc-kr').decode(u8):utf8;
+}
+
+function parseParticipants(rows){
+  const out=[];
+  rows.forEach(row=>{
+    row=Array.from(row||[]).map(clean);
+    row.forEach((cell,idx)=>{
+      if(!isOrderToken(cell))return;
+      const order=fixOrder(cell);
+      const group=orderGroup(order);
+      let name='',battle='';
+      if(idx>=12){name=row[8]||'';battle=row[9]||''}
+      else if(idx>=5){name=row[1]||'';battle=row[2]||''}
+      else{
+        const prev=row.slice(Math.max(0,idx-5),idx).filter(v=>v&&!isContactLike(v)&&!isOrderToken(v));
+        name=prev[0]||'';battle=prev[1]||'';
+      }
+      if(!name&&!battle)return;
+      out.push({
+        event_id:DPP_CONFIG.eventId,
+        participant_order:order,
+        participant_group:group,
+        participant_name:name,
+        battle_name:battle,
+        updated_at:new Date().toISOString()
+      });
+    });
+  });
+  const seen=new Set();
+  return out.filter(d=>{
+    const key=d.participant_order;
+    if(seen.has(key))return false;
+    seen.add(key);
+    return true;
+  }).sort((a,b)=>String(a.participant_order).localeCompare(String(b.participant_order),'ko'));
+}
+
+async function handleParticipantFile(e){
+  const file=e.target.files[0];
+  if(!file)return;
+  const fileName=document.getElementById('fileName');
+  if(fileName)fileName.textContent=file.name;
+
+  const reader=new FileReader();
+  reader.onload=async evt=>{
+    try{
+      const buffer=evt.target.result;
+      let rows=[];
+      if(file.name.toLowerCase().endsWith('.csv')){
+        const text=decodeCsvBuffer(buffer);
+        const wb=XLSX.read(text,{type:'string'});
+        rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:'',raw:false});
+      }else{
+        const wb=XLSX.read(buffer,{type:'array'});
+        rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:'',raw:false});
+      }
+
+      const participants=parseParticipants(rows);
+      if(!participants.length){
+        alert('참가자를 읽지 못했어. 파일 형식이나 관리자 져지 수를 확인해줘.');
+        return;
+      }
+
+      await upsertParticipants(participants);
+
+      const scoreRows=[];
+      getJudgeCircles().forEach(c=>{
+        const judge=app.settings.judges[c] || {};
+        participants.forEach(p=>{
+          scoreRows.push({
+            event_id:DPP_CONFIG.eventId,
+            judge_circle:c,
+            judge_name:judge.name || `${c} JUDGE`,
+            participant_order:p.participant_order,
+            participant_group:p.participant_group,
+            participant_name:p.participant_name,
+            battle_name:p.battle_name,
+            score:null,
+            updated_at:new Date().toISOString()
+          });
+        });
+      });
+
+      await upsertScores(scoreRows);
+      await refreshAll();
+      alert('참가자 업로드 완료. 모든 아이패드에 동기화됩니다.');
+    }catch(err){
+      console.error(err);
+      alert('업로드 오류: '+err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
