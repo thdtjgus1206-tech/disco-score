@@ -1,58 +1,8 @@
-
-function adminLogin(){
-  const pin=document.getElementById('adminPinInput').value.trim();
-  if(pin!==String(app.settings.adminPin||'0000')){
-    document.getElementById('adminLoginError').textContent='관리자 PIN이 틀렸어.';
-    return;
-  }
-  app.role='admin';
-  go('admin');
-}
-
-function renderAdmin(){
-  document.getElementById('adminPinSetting').value=app.settings.adminPin||'0000';
-  document.getElementById('judgeCount').value=app.settings.judgeCount||3;
-  document.getElementById('topCount').value=app.settings.topCount||16;
-  renderJudgeSettings();
-  renderPreview();
-  renderAllAdminViews();
-  renderManualSeedInputs();
-  renderManualBracket();
-}
-
-function renderJudgeSettings(){
-  const box=document.getElementById('judgeSettings');
-  if(!box)return;
-  box.innerHTML=getJudgeCircles().map(c=>{
-    const j=app.settings.judges[c]||{name:'',pin:''};
-    return `<div class="judge-name-box">
-      <label>${c} JUDGE NAME</label>
-      <input id="judgeName_${c}" value="${escapeHtml(j.name||'')}" placeholder="${c} JUDGE 이름" oninput="saveSettings()">
-      <label>${c} JUDGE PIN</label>
-      <input id="judgePin_${c}" value="${escapeHtml(j.pin||'')}" placeholder="${c} PIN" oninput="saveSettings()">
-    </div>`;
-  }).join('');
-}
-
-function renderPreview(){
-  const body=document.getElementById('previewBody');
-  if(!body)return;
-  if(!app.participants.length){
-    body.innerHTML='<tr><td colspan="4" class="empty">참가자 파일을 업로드해줘.</td></tr>';
-    return;
-  }
-  body.innerHTML=app.participants.map(p=>`
-    <tr>
-      <td>${escapeHtml(p.participant_order||'')}</td>
-      <td>${escapeHtml(p.participant_group||'')}</td>
-      <td>${escapeHtml(p.participant_name||'')}</td>
-      <td>${escapeHtml(p.battle_name||'')}</td>
-    </tr>
-  `).join('');
-}
-
-function renderAllAdminViews(){
-  renderProgress();
-  renderRankingPanel();
-  renderResults();
-}
+function adminLogin(){const pin=document.getElementById('adminPinInput').value.trim();if(pin!==String(DPP.settings.adminPin)){document.getElementById('adminLoginError').textContent='관리자 PIN이 틀렸어.';return}DPP.role='admin';go('admin')}
+function setScoringMode(mode){DPP.settings.scoringMode=mode;saveLocalSettings();updateModeUI();refreshAll()}
+function updateModeUI(){document.getElementById('modeCircle')?.classList.toggle('active',currentMode()==='circle');document.getElementById('modeAll')?.classList.toggle('active',currentMode()==='all')}
+function saveSettings(){DPP.settings.adminPin=document.getElementById('adminPinSetting')?.value||DPP.settings.adminPin;DPP.settings.judgeCount=Number(document.getElementById('judgeCount')?.value||DPP.settings.judgeCount);DPP.settings.topCount=Number(document.getElementById('topCount')?.value||DPP.settings.topCount);getJudgeCircles().forEach(c=>{DPP.settings.judges[c]||={name:'',pin:''};DPP.settings.judges[c].name=document.getElementById(`judgeName_${c}`)?.value??DPP.settings.judges[c].name;DPP.settings.judges[c].pin=document.getElementById(`judgePin_${c}`)?.value??DPP.settings.judges[c].pin});saveLocalSettings();renderJudgeSettings();renderJudgeLoginOptions();renderAllAdminViews();updateModeUI()}
+function renderAdmin(){document.getElementById('adminPinSetting').value=DPP.settings.adminPin;document.getElementById('judgeCount').value=DPP.settings.judgeCount;document.getElementById('topCount').value=DPP.settings.topCount;renderJudgeSettings();renderPreview();renderAllAdminViews();renderManualSeedInputs();renderManualBracket();updateModeUI()}
+function renderJudgeSettings(){const box=document.getElementById('judgeSettings');if(!box)return;box.innerHTML=getJudgeCircles().map(c=>{const j=DPP.settings.judges[c]||{name:'',pin:''};return `<div class="judge-name-box"><label>${c} JUDGE NAME</label><input id="judgeName_${c}" value="${escapeHtml(j.name||'')}" oninput="saveSettings()"><label>${c} PIN</label><input id="judgePin_${c}" value="${escapeHtml(j.pin||'')}" oninput="saveSettings()"></div>`}).join('')}
+function renderPreview(){const body=document.getElementById('previewBody');if(!body)return;body.innerHTML=DPP.participants.length?DPP.participants.map(p=>`<tr><td>${escapeHtml(p.participant_order)}</td><td>${escapeHtml(circleOf(p))}</td><td>${escapeHtml(p.participant_name||'')}</td><td>${escapeHtml(p.battle_name||'')}</td></tr>`).join(''):'<tr><td colspan="4" class="empty">참가자 없음</td></tr>'}
+function renderAllAdminViews(){renderProgress();renderRankingPanel();renderResults()}
