@@ -1,6 +1,20 @@
 function renderJudgeLoginOptions(){const s=document.getElementById('judgeCircleSelect');if(!s)return;s.innerHTML=getJudgeCircles().map(c=>`<option value="${c}">${c} JUDGE</option>`).join('')}
-async function judgeLogin(){const c=document.getElementById('judgeCircleSelect').value,pin=document.getElementById('judgePinInput').value.trim(),j=DPP.settings.judges[c]||{};if(pin!==String(j.pin||'')){document.getElementById('judgeLoginError').textContent='PIN이 틀렸어.';return}DPP.role='judge';DPP.judgeCircle=c;DPP.judgeName=j.name||`${c} JUDGE`;DPP.currentIndex=0;await loadJudgeParticipants();go('score')}
-async function loadJudgeParticipants(show=false){await refreshScoresOnly();DPP.judgeParticipants=scoreRows().filter(s=>s.judge_circle===DPP.judgeCircle&&(currentMode()==='all'||circleOf(s)===DPP.judgeCircle)).sort((a,b)=>a.participant_order.localeCompare(b.participant_order,'ko'));if(show)alert('동기화 완료');renderScore()}
+async function judgeLogin(){await applyRemoteSettings();renderJudgeLoginOptions();const c=document.getElementById('judgeCircleSelect').value,pin=document.getElementById('judgePinInput').value.trim(),j=DPP.settings.judges[c]||{};if(pin!==String(j.pin||'')){document.getElementById('judgeLoginError').textContent='PIN이 틀렸어.';return}DPP.role='judge';DPP.judgeCircle=c;DPP.judgeName=j.name||`${c} JUDGE`;DPP.currentIndex=0;await loadJudgeParticipants();go('score')}
+async function loadJudgeParticipants(show=false){
+  await applyRemoteSettings();
+  if(!DPP.participants.length)DPP.participants=await fetchParticipants();
+  await refreshScoresOnly();
+
+  let rows=scoreRows().filter(s=>s.judge_circle===DPP.judgeCircle&&(currentMode()==='all'||circleOf(s)===DPP.judgeCircle));
+  if(!rows.length && DPP.participants.length){
+    await createEmptyScores(DPP.participants);
+    await refreshScoresOnly();
+    rows=scoreRows().filter(s=>s.judge_circle===DPP.judgeCircle&&(currentMode()==='all'||circleOf(s)===DPP.judgeCircle));
+  }
+  DPP.judgeParticipants=rows.sort((a,b)=>a.participant_order.localeCompare(b.participant_order,'ko'));
+  if(show)alert('동기화 완료');
+  renderScore();
+}
 function renderScore(){const list=DPP.judgeParticipants,p=list[DPP.currentIndex];document.getElementById('bar').style.width=(((DPP.currentIndex+1)/(list.length||1))*100)+'%';document.getElementById('circleTag').textContent=`${DPP.judgeCircle} JUDGE · ${currentMode()==='all'?'ALL':'CIRCLE'}`;document.getElementById('judgeBadge').textContent=`${DPP.judgeCircle} JUDGE`;document.getElementById('judgeNameLine').textContent=DPP.judgeName;if(!p){document.getElementById('orderBadge').textContent='ORDER -';document.getElementById('circleBadge').textContent='CIRCLE -';document.getElementById('dancerName').textContent='NO DANCER';document.getElementById('realName').textContent='관리자에게 참가자 업로드 요청';document.getElementById('scoreDisplay').textContent='0';return}document.getElementById('orderBadge').textContent='ORDER '+p.participant_order;document.getElementById('circleBadge').textContent='CIRCLE '+circleOf(p);document.getElementById('dancerName').textContent=p.battle_name||p.participant_name||'NO NAME';document.getElementById('realName').textContent='REAL NAME · '+(p.participant_name||'-');document.getElementById('scoreDisplay').textContent=DPP.input||(p.score??'0')}
 function tap(v){if(v==='.'&&DPP.input.includes('.'))return;if(DPP.input.length>=5)return;if(DPP.input==='0'&&v!=='.')DPP.input='';DPP.input+=v;document.getElementById('scoreDisplay').textContent=DPP.input}
 function backspace(){DPP.input=DPP.input.slice(0,-1);document.getElementById('scoreDisplay').textContent=DPP.input||'0'}

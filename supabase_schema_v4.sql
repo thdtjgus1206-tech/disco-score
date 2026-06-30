@@ -70,3 +70,23 @@ create policy dpp_scores_all on public.dpp_scores for all using (true) with chec
 create policy dpp_logs_all on public.dpp_logs for all using (true) with check (true);
 
 -- Realtime은 Supabase Publications 화면에서 dpp_participants / dpp_scores / dpp_logs 스위치를 ON 해줘.
+
+
+-- DPP v4.1 remote settings sync
+create table if not exists public.dpp_settings (
+  event_id text primary key default 'DPP_MAIN',
+  scoring_mode text not null default 'circle',
+  judge_count integer default 3,
+  top_count integer default 16,
+  updated_at timestamptz default now()
+);
+
+alter table public.dpp_settings enable row level security;
+drop policy if exists dpp_settings_all on public.dpp_settings;
+create policy dpp_settings_all on public.dpp_settings for all using (true) with check (true);
+
+insert into public.dpp_settings (event_id, scoring_mode, judge_count, top_count)
+values ('DPP_MAIN', 'circle', 3, 16)
+on conflict (event_id) do nothing;
+
+-- Realtime은 Publications 화면에서 dpp_settings도 ON 해줘.
