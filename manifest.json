@@ -1,208 +1,27 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no" />
-  <title>D.I.S.C.O Preliminary Program V5.2</title>
-  <link rel="manifest" href="manifest.json" />
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
-  <meta name="theme-color" content="#02030a" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="D.I.S.C.O" />
-  <link rel="stylesheet" href="style.css" />
-  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <script defer src="config.js"></script>
-  <script defer src="app.js"></script>
-</head>
-<body>
-<main class="app">
-
-  <section id="home" class="screen active">
-    <div class="hero">
-      <h1>D.I.S.C.O</h1>
-      <p>PRELIMINARY PROGRAM</p>
-      <div id="statusPill" class="status">CONNECTING...</div>
-      <button onclick="showScreen('judgeLogin')" class="primary">JUDGE START</button>
-      <button onclick="showScreen('adminLogin')" class="ghost admin-btn">ADMIN MODE</button>
-    </div>
-  </section>
-
-  <section id="adminLogin" class="screen">
-    <div class="panel login-panel">
-      <div class="top">
-        <h2>ADMIN LOGIN</h2>
-        <button onclick="showScreen('home')" class="ghost small">HOME</button>
-      </div>
-      <label>ADMIN PIN</label>
-      <input id="adminPinInput" type="password" inputmode="numeric" placeholder="기본 0000" />
-      <div id="adminLoginMsg" class="msg"></div>
-      <button onclick="adminLogin()" class="primary full">LOGIN</button>
-    </div>
-  </section>
-
-  <section id="judgeLogin" class="screen">
-    <div class="panel login-panel">
-      <div class="top">
-        <h2>JUDGE LOGIN</h2>
-        <button onclick="showScreen('home')" class="ghost small">HOME</button>
-      </div>
-      <label>JUDGE CIRCLE</label>
-      <select id="judgeSelect"></select>
-      <label>PIN</label>
-      <input id="judgePinInput" type="password" inputmode="numeric" placeholder="A=1111 / B=2222 / C=3333" />
-      <div id="judgeLoginMsg" class="msg"></div>
-      <button onclick="judgeLogin()" class="primary full">LOGIN</button>
-    </div>
-  </section>
-
-  <section id="admin" class="screen">
-    <div class="top">
-      <div>
-        <h2>DPP ADMIN</h2>
-        <p class="sub">D.I.S.C.O PRELIMINARY PROGRAM V5.2</p>
-      </div>
-      <button onclick="showScreen('home')" class="ghost small">HOME</button>
-    </div>
-
-    <div class="panel">
-      <h3>SYNC STATUS</h3>
-      <p id="adminStatus">-</p>
-    </div>
-
-    <div class="panel">
-      <h3>SCORING MODE</h3>
-      <div class="mode-grid">
-        <button id="modeCircleBtn" onclick="setMode('circle')" class="mode">Mode 1<br><span>Circle Judge</span></button>
-        <button id="modeAllBtn" onclick="setMode('all')" class="mode">Mode 2<br><span>All Judge</span></button>
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="top">
-        <h3>JUDGE NAME / PIN</h3>
-        <button onclick="resetPins()" class="ghost small">RESET PIN</button>
-      </div>
-      <div id="judgeSettings" class="judge-grid"></div>
-      <button onclick="saveAdminSettings()" class="primary full">SAVE SETTINGS</button>
-    </div>
-
-    <div class="panel">
-      <h3>PARTICIPANT FILE</h3>
-      <p class="sub">엑셀/CSV 업로드. ORDER가 A-1, B-1처럼 되어 있으면 앞 글자를 Circle로 인식해.</p>
-      <label class="file-btn">
-        FILE SELECT
-        <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" onchange="handleFile(event)" />
-      </label>
-      <p id="fileName" class="sub">아직 파일 없음</p>
-    </div>
-
-    <div class="panel">
-      <h3>PROGRESS</h3>
-      <div id="progressList" class="progress-list"></div>
-    </div>
-
-    <div class="panel">
-      <div class="top">
-        <h3>LIVE RANKING</h3>
-        <button onclick="refreshAll()" class="ghost small">REFRESH</button>
-      </div>
-      <div class="tabs">
-        <button id="rankJudgeBtn" onclick="setRankView('judge')" class="tab active">JUDGE</button>
-        <button id="rankTotalBtn" onclick="setRankView('total')" class="tab">TOTAL</button>
-        <button id="rankLogBtn" onclick="setRankView('log')" class="tab">LOG</button>
-      </div>
-      <div id="rankInfo" class="sub"></div>
-      <div id="rankingList" class="rank-list"></div>
-    </div>
-
-
-    <div class="panel">
-      <div class="top">
-        <h3>RESULT IMAGE</h3>
-        <div>
-          <button onclick="saveUploadResultImage()" class="primary small">UPLOAD SAVE</button>
-          <button onclick="downloadCSV()" class="ghost small">CSV</button>
-        </div>
-      </div>
-      <div id="resultBoard" class="result-board">
-        <div class="result-logo">D.I.S.C.O</div>
-        <div class="result-sub">PRELIMINARY RESULTS</div>
-        <div id="resultList"></div>
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="top">
-        <div>
-          <h3>TOP 16 BRACKET</h3>
-          <p class="sub">Seed 1~16 직접 입력 후 스토리 이미지 저장</p>
-        </div>
-        <div>
-          <button onclick="clearBracketSeeds()" class="ghost small">CLEAR</button>
-          <button onclick="saveBracketStoryImage()" class="primary small">STORY SAVE</button>
-        </div>
-      </div>
-      <div id="seedInputs" class="seed-grid"></div>
-      <div id="bracketPreview" class="bracket-preview"></div>
-    </div>
-
-    <div id="bracketStoryBoard" class="bracket-story-board">
-      <div class="story-inner">
-        <div class="story-logo">D.I.S.C.O</div>
-        <div class="story-sub">TOP 16 BATTLE BRACKET</div>
-        <div id="bracketStoryContent"></div>
-      </div>
-    </div>
-
-    <div class="panel">
-      <h3>PARTICIPANT PREVIEW</h3>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>ORDER</th><th>CIRCLE</th><th>NAME</th><th>BATTLE NAME</th></tr></thead>
-          <tbody id="participantPreview"></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-
-  <section id="score" class="screen">
-    <div class="top">
-      <div>
-        <h2 id="scoreHeader">JUDGE</h2>
-        <p id="scoreSub" class="sub">-</p>
-      </div>
-      <button onclick="logout()" class="ghost small">LOGOUT</button>
-    </div>
-
-    <div class="progress-bar"><div id="scoreProgress"></div></div>
-
-    <div class="score-card">
-      <div class="badges">
-        <span id="orderBadge">ORDER -</span>
-        <span id="circleBadge">CIRCLE -</span>
-      </div>
-      <div id="battleName" class="battle-name">NO DANCER</div>
-      <div id="realName" class="real-name">REAL NAME</div>
-      <div id="scoreDisplay" class="score-display">0</div>
-
-      <div class="keypad">
-        <button onclick="tap('1')">1</button><button onclick="tap('2')">2</button><button onclick="tap('3')">3</button>
-        <button onclick="tap('4')">4</button><button onclick="tap('5')">5</button><button onclick="tap('6')">6</button>
-        <button onclick="tap('7')">7</button><button onclick="tap('8')">8</button><button onclick="tap('9')">9</button>
-        <button onclick="tap('.')">.</button><button onclick="tap('0')">0</button><button onclick="backspace()">⌫</button>
-        <button onclick="clearScore()" class="wide func">CLEAR</button><button onclick="saveScoreAndNext()" class="ok">OK</button>
-      </div>
-    </div>
-
-    <div class="nav-row">
-      <button onclick="prevDancer()" class="ghost">PREV</button>
-      <button onclick="nextDancer()" class="ghost">NEXT</button>
-      <button onclick="loadJudgeQueue(true)" class="ghost">SYNC</button>
-    </div>
-  </section>
-
-</main>
-</body>
-</html>
+{
+  "name": "D.I.S.C.O Preliminary Program V5.3",
+  "short_name": "D.I.S.C.O",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#02030a",
+  "theme_color": "#02030a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

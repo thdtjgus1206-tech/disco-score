@@ -57,3 +57,12 @@ button,input,select{font:inherit}button{border:0;cursor:pointer}.app{width:min(1
 #bracketStoryContent .bracket-row{grid-template-columns:64px 1fr 70px 1fr;padding:17px 12px;border:1px solid rgba(255,255,255,.12);border-radius:20px;margin-bottom:14px}
 #bracketStoryContent .bracket-row em{font-size:28px}
 @media(max-width:760px){.seed-grid{grid-template-columns:1fr 1fr}.result-row span{font-size:22px}.bracket-row{grid-template-columns:42px 1fr 36px 1fr;font-size:13px}}
+
+/* ===== V5.3 Queue Debug ===== */
+.debug-line{
+  color:#43d7ff;
+  font-size:12px;
+  font-weight:900;
+  letter-spacing:.04em;
+  margin:4px 0 0;
+}
