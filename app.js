@@ -29,72 +29,17 @@ let supabaseClient = null;
 /* stable save v6.1 - no upsert dependency */
 
 async function safeSaveParticipantRows(rows){
-  for(const row of rows){
-    const { data, error } = await supabaseClient
-      .from("dpp_participants")
-      .select("id")
-      .eq("event_id", row.event_id)
-      .eq("participant_order", row.participant_order)
-      .maybeSingle();
-    if(error) throw error;
-
-    const payload = {
-      participant_circle: row.participant_circle,
-      participant_name: row.participant_name,
-      battle_name: row.battle_name,
-      updated_at: row.updated_at || new Date().toISOString()
-    };
-
-    if(data && data.id){
-      const { error: updateError } = await supabaseClient
-        .from("dpp_participants")
-        .update(payload)
-        .eq("id", data.id);
-      if(updateError) throw updateError;
-    }else{
-      const { error: insertError } = await supabaseClient
-        .from("dpp_participants")
-        .insert(row);
-      if(insertError) throw insertError;
-    }
-  }
+  const { error } = await supabaseClient
+    .from("dpp_participants")
+    .upsert(rows, { onConflict:"event_id,participant_order" });
+  if(error) throw error;
 }
 
 async function safeSaveScoreRow(row){
-  // 기존 DB에 남아있는 UNIQUE 조건이
-  // event_id + judge_circle + participant_order 기준이라 여기에 맞춰 먼저 찾는다.
-  const { data, error } = await supabaseClient
+  const { error } = await supabaseClient
     .from("dpp_scores")
-    .select("id")
-    .eq("event_id", row.event_id)
-    .eq("judge_circle", row.judge_circle)
-    .eq("participant_order", row.participant_order)
-    .maybeSingle();
-
+    .upsert(row, { onConflict:"event_id,score_mode,judge_circle,participant_order" });
   if(error) throw error;
-
-  const payload = {
-    score_mode: row.score_mode,
-    judge_name: row.judge_name,
-    participant_circle: row.participant_circle,
-    participant_name: row.participant_name,
-    battle_name: row.battle_name,
-    score: row.score,
-    updated_at: row.updated_at || new Date().toISOString()
-  };
-
-  if(data && data.id){
-    const { error: updateError } = await supabaseClient
-      .from("dpp_scores")
-      .update(payload)
-      .eq("id", data.id);
-    if(updateError) throw updateError;
-  }else{
-    const { error: insertError } = await supabaseClient
-      .from("dpp_scores")
-      .insert(row);
-    if(insertError) throw insertError;
-  }
 }
 
 async function safeInsertScoreRows(rows){
@@ -578,11 +523,13 @@ async function createEmptyScores(){
     return;
   }
 
-  try{
-    await safeInsertScoreRows(rows);
-  }catch(error){
+  const { error } = await supabaseClient
+    .from("dpp_scores")
+    .upsert(rows, { onConflict:"event_id,score_mode,judge_circle,participant_order" });
+
+  if(error){
     console.error("createEmptyScores error:", error);
-    alert("점수표 생성 오류: " + error.message);
+    alert("점수표 생성 오류: " + error.message + "\\n\\nSupabase SQL Editor에서 v6.3 REQUIRED SQL을 먼저 실행했는지 확인해줘.");
     return;
   }
 }
