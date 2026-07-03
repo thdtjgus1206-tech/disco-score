@@ -32,7 +32,7 @@ function mode(){ return S.settings.mode || "circle"; }
 function defaultPin(c){ return DEFAULTS.judges[c]?.pin || "1111"; }
 function judgeName(c){ return S.settings.judges[c]?.name || `${c} JUDGE`; }
 function allowedPins(c){
-  const saved = String(S.settings.judges[c]?.pin || "").trim();
+  const saved = String(S.settings.judges?.[c]?.pin || "").trim();
   return Array.from(new Set([saved, defaultPin(c)].filter(Boolean)));
 }
 function show(id){
@@ -77,7 +77,7 @@ async function init(){
     subscribe();
   }catch(e){
     console.error(e);
-    setStatus("DB ERROR", false);
+    setStatus("DB ERROR / LOGIN STILL WORKS", false);
   }
   renderJudgeSelect();
   updateOfflineStatus();
@@ -151,10 +151,14 @@ function renderJudgeSelect(){
   const sel = $("judgeSelect");
   if(!sel) return;
   const keep = sel.value || S.judge || "A";
-  sel.innerHTML = circles().map(c => `<option value="${c}">${c} JUDGE · ${esc(judgeName(c))}</option>`).join("");
+  sel.innerHTML = circles().map(c => `<option value="${c}">${c} JUDGE</option>`).join("");
   sel.value = circles().includes(keep) ? keep : "A";
   S.judge = sel.value;
-  sel.onchange = () => { S.judge = sel.value; $("judgeMsg").textContent = ""; };
+  sel.onchange = () => {
+    S.judge = sel.value;
+    const msg = $("judgeMsg");
+    if(msg) msg.textContent = "";
+  };
 }
 function openJudgeLogin(){
   renderJudgeSelect();
@@ -172,21 +176,38 @@ function adminLogin(){
   show("admin");
 }
 async function judgeLogin(){
-  const c = $("judgeSelect").value;
+  const c = $("judgeSelect").value || "A";
   const pin = $("judgePin").value.trim();
   S.judge = c;
-  if(!allowedPins(c).includes(pin)){
+
+  const hardPins = { A:"1111", B:"2222", C:"3333" };
+  const savedPin = String(S.settings.judges?.[c]?.pin || "").trim();
+  const accepted = new Set([hardPins[c], savedPin].filter(Boolean));
+
+  if(!accepted.has(pin)){
     $("judgeMsg").textContent = `${c} JUDGE PIN이 틀렸어. 현재 선택: ${c}`;
     return;
   }
-  $("judgeMsg").textContent = "";
+
+  $("judgeMsg").textContent = "LOGIN OK";
   $("judgePin").value = "";
+
   S.role = "judge";
   S.index = 0;
   S.input = "";
-  await refreshAll();
-  await buildJudgeQueue();
+  S.queue = [];
+
+  // 로그인 성공은 DB 로딩과 분리: 먼저 채점 화면으로 이동
   show("score");
+  renderScore();
+
+  try{
+    await refreshAll();
+    await buildJudgeQueue();
+  }catch(err){
+    console.error("Judge data load error:", err);
+    $("debugLine").textContent = "로그인은 성공 / 데이터 로딩 오류: " + err.message;
+  }
 }
 function logout(){
   S.role = null; S.queue=[]; S.index=0; S.input="";
@@ -333,7 +354,7 @@ function renderScore(){
   const item=S.queue[S.index];
   if(!item){
     $("orderBadge").textContent="ORDER -"; $("circleBadge").textContent="CIRCLE -";
-    $("battleName").textContent="NO DANCER"; $("realName").textContent="관리자에서 참가자 업로드 후 심사 준비 버튼 확인";
+    $("battleName").textContent="NO DANCER"; $("realName").textContent="로그인 성공 / 참가자 데이터 로딩 중 또는 관리자에서 심사 준비 버튼 확인";
     $("scoreDisplay").textContent="0"; return;
   }
   $("orderBadge").textContent="ORDER "+item.participant_order;
