@@ -93,6 +93,22 @@ function subscribe(){
     .subscribe();
 }
 
+
+async function ensureSettingsRow(){
+  try{
+    await sb.from("dpp_settings").upsert({
+      event_id:DPP_CONFIG.eventId,
+      scoring_mode:S.settings.mode,
+      judge_count:3,
+      top_count:S.settings.topCount,
+      judges:S.settings.judges,
+      updated_at:new Date().toISOString()
+    },{onConflict:"event_id"});
+  }catch(e){
+    console.warn("settings row create failed", e);
+  }
+}
+
 async function loadSettings(){
   const {data,error} = await sb.from("dpp_settings").select("*").eq("event_id",DPP_CONFIG.eventId).maybeSingle();
   if(error) throw error;
@@ -106,6 +122,9 @@ async function loadSettings(){
         };
       });
     }
+  }else{
+    S.settings = JSON.parse(JSON.stringify(DEFAULTS));
+    await ensureSettingsRow();
   }
 }
 async function saveSettings(){
@@ -244,6 +263,28 @@ async function resetPins(){
   await saveSettings();
   alert("PIN 초기화 완료");
 }
+
+async function clearAllData(){
+  if(!confirm("현재 테스트 참가자/점수/로그를 전부 삭제할까?")) return;
+  try{
+    await sb.from("dpp_logs").delete().eq("event_id", DPP_CONFIG.eventId);
+    await sb.from("dpp_scores").delete().eq("event_id", DPP_CONFIG.eventId);
+    await sb.from("dpp_participants").delete().eq("event_id", DPP_CONFIG.eventId);
+    localStorage.clear();
+    S.participants = [];
+    S.scores = [];
+    S.logs = [];
+    S.queue = [];
+    S.index = 0;
+    S.input = "";
+    await refreshAll();
+    renderAdmin();
+    alert("초기화 완료. 이제 참가자 파일을 새로 업로드해줘.");
+  }catch(err){
+    alert("초기화 오류: " + err.message);
+  }
+}
+
 async function prepareJudging(){
   readAdminSettings();
   await saveSettings();
@@ -327,8 +368,16 @@ function renderParticipants(){
 }
 
 async function buildJudgeQueue(){
-  if(!S.participants.length) S.participants = await fetchParticipants();
-  if(!S.scores.length) S.scores = await fetchScores();
+  S.participants = await fetchParticipants();
+  S.scores = await fetchScores();
+
+  if(!S.participants.length){
+    S.queue = [];
+    S.index = 0;
+    renderScore();
+    return;
+  }
+
   const base = S.participants.filter(p => mode()==="all" || p.participant_circle===S.judge);
   S.queue = base.map(p=>{
     const found = S.scores.find(s=>s.score_mode===mode() && s.judge_circle===S.judge && s.participant_order===p.participant_order);

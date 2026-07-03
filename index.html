@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
-  <title>D.I.S.C.O Preliminary Program V7.1</title>
+  <title>D.I.S.C.O Preliminary Program V7.2</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <meta name="theme-color" content="#02030a">
@@ -19,7 +19,7 @@
   <section id="home" class="screen active">
     <div class="hero">
       <h1>D.I.S.C.O</h1>
-      <p>PRELIMINARY PROGRAM V7.1 LOGIN FIX</p>
+      <p>PRELIMINARY PROGRAM V7.2 DATA RESET</p>
       <div id="statusPill" class="status">LOADING...</div>
       <button class="primary" onclick="openJudgeLogin()">JUDGE START</button>
       <button class="ghost admin-btn" onclick="show('adminLogin')">ADMIN MODE</button>
@@ -85,6 +85,8 @@
       <label class="file-btn">FILE SELECT<input type="file" id="fileInput" accept=".xlsx,.xls,.csv" onchange="handleFile(event)"></label>
       <p id="fileName" class="sub">아직 파일 없음</p>
       <button class="primary full" onclick="prepareJudging()">SAVE ALL SETTINGS / 심사 준비</button>
+      <button class="ghost full" onclick="clearAllData()">CLEAR ALL DATA</button>
+      <p class="sub">새 테스트 전에는 CLEAR ALL DATA로 참가자/점수/로그를 초기화할 수 있어.</p>
     </div>
 
     <div class="panel">
