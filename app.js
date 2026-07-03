@@ -25,6 +25,50 @@ const state = {
 
 let supabaseClient = null;
 
+/* offline sync v6 */
+function pendingKey(){
+  return `DPP_PENDING_${DPP_CONFIG.eventId}_${currentMode()}_${state.selectedJudge || "UNKNOWN"}`;
+}
+function getPendingScores(){
+  try{
+    return JSON.parse(localStorage.getItem(pendingKey()) || "[]");
+  }catch(e){
+    return [];
+  }
+}
+function setPendingScores(rows){
+  localStorage.setItem(pendingKey(), JSON.stringify(rows || []));
+  updateOfflineStatus();
+}
+function upsertLocalPending(row){
+  const rows = getPendingScores();
+  const key = `${row.score_mode}|${row.judge_circle}|${row.participant_order}`;
+  const idx = rows.findIndex(r => `${r.score_mode}|${r.judge_circle}|${r.participant_order}` === key);
+  if(idx >= 0) rows[idx] = row;
+  else rows.push(row);
+  setPendingScores(rows);
+}
+function removePendingRows(uploadedRows){
+  const uploaded = new Set(uploadedRows.map(r => `${r.score_mode}|${r.judge_circle}|${r.participant_order}`));
+  const rows = getPendingScores().filter(r => !uploaded.has(`${r.score_mode}|${r.judge_circle}|${r.participant_order}`));
+  setPendingScores(rows);
+}
+function updateOfflineStatus(){
+  const pending = getPendingScores().length;
+  const online = navigator.onLine;
+  const txt = online ? `ONLINE · 업로드 대기 ${pending}건` : `OFFLINE · 기기 저장 중 · 업로드 대기 ${pending}건`;
+  const node = el("offlineStatus");
+  if(node){
+    node.textContent = txt;
+    node.classList.toggle("bad", !online || pending > 0);
+  }
+  const admin = el("localPendingAdmin");
+  if(admin) admin.textContent = `이 기기의 대기 점수: ${pending}건`;
+}
+window.addEventListener("online", updateOfflineStatus);
+window.addEventListener("offline", updateOfflineStatus);
+
+
 function el(id){ return document.getElementById(id); }
 function escapeHtml(str){
   return String(str ?? "").replace(/[&<>"]/g, ch => ({
@@ -74,6 +118,7 @@ async function init(){
   supabaseClient = window.supabase.createClient(DPP_CONFIG.supabaseUrl, DPP_CONFIG.supabaseKey);
   await loadSettings();
   await refreshAll();
+  updateOfflineStatus();
   renderJudgeSelect();
 
   supabaseClient
@@ -219,6 +264,7 @@ function renderAdmin(){
   renderProgress();
   renderRanking();
   renderParticipantPreview();
+  updateOfflineStatus();
   renderResultBoard();
   renderBracket();
 }
@@ -254,7 +300,7 @@ async function setMode(mode){
   await loadSettings();
   await refreshAll();
 }
-async function saveAdminSettings(){
+async function saveAdminSettings(showAlert=true){
   getCircles().forEach(c => {
     state.settings.judges[c] = {
       name: el(`name_${c}`).value.trim() || `${c} JUDGE`,
@@ -266,7 +312,7 @@ async function saveAdminSettings(){
     await createEmptyScores();
     await loadSettings();
     await refreshAll();
-    alert("저장 완료");
+    if(showAlert) alert("저장 완료");
   }catch(err){
     alert("저장 오류: " + err.message);
   }
@@ -279,6 +325,82 @@ async function resetPins(){
   await loadSettings();
   renderAdmin();
   alert("PIN 초기화 완료: A=1111 / B=2222 / C=3333");
+}
+
+
+function buildScoreRowsFromParticipants(participants, mode=currentMode()){
+  const rows = [];
+  getCircles().forEach(circle => {
+    const judge = state.settings.judges[circle] || { name:`${circle} JUDGE` };
+    participants.forEach(p => {
+      const pCircle = String(p.participant_circle || "").trim();
+      if(mode === "circle" && pCircle !== circle) return;
+      rows.push({
+        event_id: DPP_CONFIG.eventId,
+        score_mode: mode,
+        judge_circle: circle,
+        judge_name: judge.name || `${circle} JUDGE`,
+        participant_order: p.participant_order,
+        participant_circle: pCircle,
+        participant_name: p.participant_name,
+        battle_name: p.battle_name,
+        score: null,
+        updated_at: new Date().toISOString()
+      });
+    });
+  });
+  return rows;
+}
+
+
+function mergePendingScoresIntoQueue(rows){
+  const pending = getPendingScores();
+  if(!pending.length) return rows;
+  const map = new Map(rows.map(r => [`${r.score_mode}|${r.judge_circle}|${r.participant_order}`, r]));
+  pending.forEach(p => {
+    const key = `${p.score_mode}|${p.judge_circle}|${p.participant_order}`;
+    if(map.has(key)) map.set(key, {...map.get(key), ...p});
+    else map.set(key, p);
+  });
+  return Array.from(map.values()).sort((a,b)=>String(a.participant_order).localeCompare(String(b.participant_order), "ko"));
+}
+
+function buildQueueDirectlyFromParticipants(circle){
+  const mode = currentMode();
+  const participants = state.participants.filter(p => mode === "all" || String(p.participant_circle || "").trim() === circle);
+  return participants.map(p => {
+    const existing = state.scores.find(s =>
+      String(s.score_mode || mode) === mode &&
+      String(s.judge_circle || "").trim() === circle &&
+      String(s.participant_order || "").trim() === String(p.participant_order || "").trim()
+    );
+    const judge = state.settings.judges[circle] || { name:`${circle} JUDGE` };
+    return existing || {
+      event_id: DPP_CONFIG.eventId,
+      score_mode: mode,
+      judge_circle: circle,
+      judge_name: judge.name || `${circle} JUDGE`,
+      participant_order: p.participant_order,
+      participant_circle: p.participant_circle,
+      participant_name: p.participant_name,
+      battle_name: p.battle_name,
+      score: null,
+      updated_at: new Date().toISOString()
+    };
+  }).sort((a,b)=>String(a.participant_order).localeCompare(String(b.participant_order), "ko"));
+}
+
+
+async function prepareJudging(){
+  try{
+    await saveAdminSettings(false);
+    state.participants = await fetchParticipants();
+    await createEmptyScores();
+    await refreshAll();
+    alert(`심사 준비 완료 / MODE: ${currentMode()} / 참가자: ${state.participants.length}명`);
+  }catch(err){
+    alert("심사 준비 오류: " + err.message);
+  }
 }
 
 /* participant upload */
@@ -365,70 +487,29 @@ async function handleFile(e){
 }
 async function createEmptyScores(){
   const participants = state.participants.length ? state.participants : await fetchParticipants();
-  if(!participants.length) return;
+  state.participants = participants;
+  if(!participants.length){
+    alert("참가자 명단이 없어. 먼저 참가자 파일을 업로드해줘.");
+    return;
+  }
 
-  const existingScores = await fetchScores();
-  const existingMap = new Map();
-  existingScores.forEach(s => {
-    existingMap.set(`${s.score_mode}|${s.judge_circle}|${s.participant_order}`, s);
-  });
-
-  const rows = [];
   const mode = currentMode();
+  const rows = buildScoreRowsFromParticipants(participants, mode);
 
-  getCircles().forEach(circle => {
-    const judge = state.settings.judges[circle] || { name:`${circle} JUDGE` };
-    participants.forEach(p => {
-      const pCircle = String(p.participant_circle || "").trim();
-      if(mode === "circle" && pCircle !== circle) return;
+  if(!rows.length){
+    alert("생성할 점수표가 없어. 참가자 ORDER의 Circle(A-1/B-1 등)과 Judge Count를 확인해줘.");
+    return;
+  }
 
-      const key = `${mode}|${circle}|${p.participant_order}`;
-      const old = existingMap.get(key);
-
-      rows.push({
-        event_id: DPP_CONFIG.eventId,
-        score_mode: mode,
-        judge_circle: circle,
-        judge_name: judge.name || `${circle} JUDGE`,
-        participant_order: p.participant_order,
-        participant_circle: pCircle,
-        participant_name: p.participant_name,
-        battle_name: p.battle_name,
-        score: old ? old.score : null,
-        updated_at: old ? old.updated_at : new Date().toISOString()
-      });
-    });
-  });
-
-  if(!rows.length) return;
   const { error } = await supabaseClient
     .from("dpp_scores")
     .upsert(rows, { onConflict:"event_id,score_mode,judge_circle,participant_order" });
-  if(error) console.error("createEmptyScores error:", error);
-}
 
-
-function normalizeOrderValue(v){
-  return String(v ?? "").trim();
-}
-function rowsForJudge(circle){
-  const mode = currentMode();
-  const rows = state.scores.filter(s => {
-    if(String(s.score_mode || mode) !== mode) return false;
-    if(String(s.judge_circle || "").trim() !== circle) return false;
-    if(mode === "all") return true;
-    return String(s.participant_circle || "").trim() === circle;
-  });
-  return rows.sort((a,b)=>normalizeOrderValue(a.participant_order).localeCompare(normalizeOrderValue(b.participant_order), "ko"));
-}
-function expectedQueueCount(circle){
-  if(currentMode() === "all") return state.participants.length;
-  return state.participants.filter(p => String(p.participant_circle || "").trim() === circle).length;
-}
-function setQueueDebug(extra=""){
-  const node = el("queueDebug");
-  if(!node) return;
-  node.textContent = `MODE: ${currentMode().toUpperCase()} · JUDGE: ${state.selectedJudge || "-"} · QUEUE: ${state.queue.length} · SCORES: ${state.scores.length} · PARTICIPANTS: ${state.participants.length}${extra ? " · " + extra : ""}`;
+  if(error){
+    console.error("createEmptyScores error:", error);
+    alert("점수표 생성 오류: " + error.message);
+    return;
+  }
 }
 
 /* judge scoring */
@@ -438,22 +519,35 @@ async function loadJudgeQueue(showAlert=false){
   state.scores = await fetchScores();
 
   const circle = state.selectedJudge;
-  let rows = rowsForJudge(circle);
-  const expected = expectedQueueCount(circle);
 
-  // 안전장치: 점수 테이블은 있는데 현재 Judge row가 없으면 해당 모드 점수표 재생성
-  if((rows.length === 0 && expected > 0) || rows.length < expected){
-    await createEmptyScores();
-    state.scores = await fetchScores();
-    rows = rowsForJudge(circle);
+  if(!state.participants.length){
+    state.queue = [];
+    if(showAlert) alert("참가자 명단이 없어. 관리자 모드에서 참가자 업로드 후 '심사 준비' 버튼을 눌러줘.");
+    renderScore();
+    return;
   }
 
-  state.queue = rows;
+  // 점수 테이블이 없어도 참가자 테이블에서 바로 Queue 생성
+  let rows = buildQueueDirectlyFromParticipants(circle);
+
+  // DB에 현재 모드 점수 row가 부족하면 자동 생성 후 다시 읽기
+  const expected = currentMode() === "all"
+    ? state.participants.length
+    : state.participants.filter(p => String(p.participant_circle || "").trim() === circle).length;
+
+  if(rows.length < expected || state.scores.filter(s => String(s.judge_circle || "").trim() === circle).length < expected){
+    await createEmptyScores();
+    state.scores = await fetchScores();
+    rows = buildQueueDirectlyFromParticipants(circle);
+  }
+
+  state.queue = mergePendingScoresIntoQueue(rows);
   if(state.queueIndex >= state.queue.length) state.queueIndex = 0;
 
   if(showAlert) alert(`동기화 완료 / ${circle} JUDGE / ${currentMode()} / ${state.queue.length}명`);
   renderScore();
 }
+
 function renderScore(){
   if(state.role !== "judge") return;
   const circle = state.selectedJudge;
@@ -470,7 +564,7 @@ function renderScore(){
     el("orderBadge").textContent = "ORDER -";
     el("circleBadge").textContent = "CIRCLE -";
     el("battleName").textContent = "NO DANCER";
-    el("realName").textContent = `데이터 없음 · MODE ${currentMode()} · ${state.selectedJudge} JUDGE · 참가자 ${state.participants.length}명 · 점수row ${state.scores.length}개`;
+    el("realName").textContent = `데이터 없음 · MODE ${currentMode()} · ${state.selectedJudge} JUDGE · 참가자 ${state.participants.length}명 · 점수row ${state.scores.length}개 · 관리자에서 심사 준비 버튼 확인`;
     el("scoreDisplay").textContent = "0";
     setQueueDebug("NO DANCER");
     return;
@@ -482,6 +576,7 @@ function renderScore(){
   el("realName").textContent = "REAL NAME · " + (item.participant_name || "-");
   el("scoreDisplay").textContent = state.scoreInput || (item.score ?? "0");
   setQueueDebug();
+  updateOfflineStatus();
 }
 function tap(v){
   if(v === "." && state.scoreInput.includes(".")) return;
@@ -498,6 +593,65 @@ function clearScore(){
   state.scoreInput = "";
   el("scoreDisplay").textContent = "0";
 }
+
+async function uploadOneScore(row){
+  const { error } = await supabaseClient
+    .from("dpp_scores")
+    .upsert(row, { onConflict:"event_id,score_mode,judge_circle,participant_order" });
+  if(error) throw error;
+
+  await supabaseClient.from("dpp_logs").insert({
+    event_id: row.event_id,
+    score_mode: row.score_mode,
+    judge_circle: row.judge_circle,
+    judge_name: row.judge_name,
+    participant_order: row.participant_order,
+    participant_circle: row.participant_circle,
+    participant_name: row.participant_name,
+    battle_name: row.battle_name,
+    score: row.score
+  });
+}
+
+async function syncPendingScores(){
+  const pending = getPendingScores();
+  if(!pending.length){
+    alert("업로드 대기 점수가 없어.");
+    updateOfflineStatus();
+    return;
+  }
+  if(!navigator.onLine){
+    alert(`현재 오프라인이야. 인터넷 연결 후 다시 눌러줘. 대기 ${pending.length}건`);
+    updateOfflineStatus();
+    return;
+  }
+
+  let success = [];
+  let failed = 0;
+
+  for(const row of pending){
+    try{
+      await uploadOneScore(row);
+      success.push(row);
+      removePendingRows(success);
+      updateOfflineStatus();
+    }catch(err){
+      console.error("sync failed", err);
+      failed++;
+    }
+  }
+
+  await refreshScoresOnly();
+  await loadJudgeQueue(false);
+  updateOfflineStatus();
+
+  if(failed){
+    alert(`일부 업로드 실패: 성공 ${success.length}건 / 실패 ${failed}건`);
+  }else{
+    alert(`SYNC 완료: ${success.length}건 업로드`);
+  }
+}
+
 async function saveScoreAndNext(){
   const item = state.queue[state.queueIndex];
   if(!item){ alert("참가자가 없어."); return; }
@@ -514,27 +668,31 @@ async function saveScoreAndNext(){
     score_mode: currentMode(),
     judge_circle: circle,
     judge_name: judge.name || `${circle} JUDGE`,
-    score,
-    updated_at: new Date().toISOString()
-  };
-
-  const { error } = await supabaseClient.from("dpp_scores").upsert(row, { onConflict:"event_id,score_mode,judge_circle,participant_order" });
-  if(error){ alert("저장 오류: " + error.message); return; }
-
-  await supabaseClient.from("dpp_logs").insert({
-    event_id: DPP_CONFIG.eventId,
-    score_mode: currentMode(),
-    judge_circle: circle,
-    judge_name: judge.name || `${circle} JUDGE`,
     participant_order: item.participant_order,
     participant_circle: item.participant_circle,
     participant_name: item.participant_name,
     battle_name: item.battle_name,
-    score
-  });
+    score,
+    updated_at: new Date().toISOString()
+  };
+
+  // 1) 항상 기기 내부에 먼저 저장: 와이파이 끊겨도 점수 보존
+  upsertLocalPending(row);
+
+  // 2) 현재 화면 queue에도 바로 반영
+  state.queue[state.queueIndex] = row;
+
+  // 3) 온라인이면 즉시 업로드 시도. 실패해도 local pending에 남음
+  if(navigator.onLine){
+    try{
+      await uploadOneScore(row);
+      removePendingRows([row]);
+    }catch(err){
+      console.warn("online upload failed, kept locally", err);
+    }
+  }
 
   state.scoreInput = "";
-  await loadJudgeQueue(false);
   nextDancer();
 }
 function nextDancer(){
