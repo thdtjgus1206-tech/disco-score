@@ -1,5 +1,33 @@
-function renderJudgeLoginOptions(){const s=document.getElementById('judgeCircleSelect');if(!s)return;s.innerHTML=getJudgeCircles().map(c=>`<option value="${c}">${c} JUDGE</option>`).join('')}
-async function judgeLogin(){await applyRemoteSettings();renderJudgeLoginOptions();const c=document.getElementById('judgeCircleSelect').value,pin=document.getElementById('judgePinInput').value.trim(),j=DPP.settings.judges[c]||{};if(pin!==String(j.pin||'').trim()){document.getElementById('judgeLoginError').textContent='PIN이 틀렸어.';return}DPP.role='judge';DPP.judgeCircle=c;DPP.judgeName=j.name||`${c} JUDGE`;DPP.currentIndex=0;await loadJudgeParticipants();go('score')}
+function renderJudgeLoginOptions(){
+  const s=document.getElementById('judgeCircleSelect');
+  if(!s)return;
+  const current=s.value || DPP.judgeCircle || 'A';
+  s.innerHTML=getJudgeCircles().map(c=>`<option value="${c}">${c} JUDGE</option>`).join('');
+  if([...s.options].some(o=>o.value===current)) s.value=current;
+}
+
+async function judgeLogin(){
+  const select=document.getElementById('judgeCircleSelect');
+  const selectedCircle=select ? (select.value || 'A') : 'A';
+  const inputPin=document.getElementById('judgePinInput').value.trim();
+
+  await applyRemoteSettings();
+  renderJudgeLoginOptions();
+  if(select) select.value=selectedCircle;
+
+  const expectedPin=getJudgePin(selectedCircle);
+  if(inputPin!==expectedPin){
+    document.getElementById('judgeLoginError').textContent=`${selectedCircle} JUDGE PIN이 틀렸어.`;
+    return;
+  }
+
+  DPP.role='judge';
+  DPP.judgeCircle=selectedCircle;
+  DPP.judgeName=getJudgeName(selectedCircle);
+  DPP.currentIndex=0;
+  await loadJudgeParticipants();
+  go('score');
+}
 async function loadJudgeParticipants(show=false){
   await applyRemoteSettings();
   if(!DPP.participants.length)DPP.participants=await fetchParticipants();

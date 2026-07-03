@@ -5,6 +5,15 @@ async function setScoringMode(mode){DPP.settings.scoringMode=mode;saveLocalSetti
 function updateModeUI(){document.getElementById('modeCircle')?.classList.toggle('active',currentMode()==='circle');document.getElementById('modeAll')?.classList.toggle('active',currentMode()==='all')}
 async function saveSettings(){DPP.settings.adminPin=document.getElementById('adminPinSetting')?.value||DPP.settings.adminPin;DPP.settings.judgeCount=Number(document.getElementById('judgeCount')?.value||DPP.settings.judgeCount);DPP.settings.topCount=Number(document.getElementById('topCount')?.value||DPP.settings.topCount);getJudgeCircles().forEach(c=>{DPP.settings.judges[c]||={name:'',pin:''};DPP.settings.judges[c].name=document.getElementById(`judgeName_${c}`)?.value??DPP.settings.judges[c].name;DPP.settings.judges[c].pin=document.getElementById(`judgePin_${c}`)?.value??DPP.settings.judges[c].pin});saveLocalSettings();await saveRemoteSettings();renderJudgeSettings();renderJudgeLoginOptions();renderAllAdminViews();updateModeUI()}
 function renderAdmin(){updateModeUI();document.getElementById('adminPinSetting').value=DPP.settings.adminPin;document.getElementById('judgeCount').value=DPP.settings.judgeCount;document.getElementById('topCount').value=DPP.settings.topCount;renderJudgeSettings();renderPreview();renderAllAdminViews();renderManualSeedInputs();renderManualBracket();updateModeUI()}
-function renderJudgeSettings(){const box=document.getElementById('judgeSettings');if(!box)return;box.innerHTML=getJudgeCircles().map(c=>{const j=DPP.settings.judges[c]||{name:'',pin:''};return `<div class="judge-name-box"><label>${c} JUDGE NAME</label><input id="judgeName_${c}" value="${escapeHtml(j.name||'')}" oninput="scheduleSaveSettings()"><label>${c} PIN</label><input id="judgePin_${c}" value="${escapeHtml(j.pin||'')}" oninput="scheduleSaveSettings()"></div>`}).join('')}
+function renderJudgeSettings(){const box=document.getElementById('judgeSettings');if(!box)return;box.innerHTML=getJudgeCircles().map(c=>{const j=DPP.settings.judges[c]||{name:'',pin:''};return `<div class="judge-name-box"><label>${c} JUDGE NAME</label><input id="judgeName_${c}" value="${escapeHtml(j.name||'')}" oninput="scheduleSaveSettings()"><label>${c} PIN</label><input id="judgePin_${c}" value="${escapeHtml(getJudgePin(c))}" oninput="scheduleSaveSettings()"></div>`}).join('')}
 function renderPreview(){const body=document.getElementById('previewBody');if(!body)return;body.innerHTML=DPP.participants.length?DPP.participants.map(p=>`<tr><td>${escapeHtml(p.participant_order)}</td><td>${escapeHtml(circleOf(p))}</td><td>${escapeHtml(p.participant_name||'')}</td><td>${escapeHtml(p.battle_name||'')}</td></tr>`).join(''):'<tr><td colspan="4" class="empty">참가자 없음</td></tr>'}
 function renderAllAdminViews(){renderProgress();renderRankingPanel();renderResults()}
+
+async function resetJudgePinsFromAdmin(){
+  if(!confirm('Judge PIN을 기본값 A=1111 / B=2222 / C=3333으로 초기화할까?'))return;
+  resetDefaultJudgePins();
+  if(typeof saveRemoteSettings==='function') await saveRemoteSettings();
+  renderJudgeSettings();
+  renderJudgeLoginOptions();
+  alert('PIN 초기화 완료: A=1111, B=2222, C=3333');
+}

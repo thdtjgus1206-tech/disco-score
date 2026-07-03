@@ -145,3 +145,115 @@
     font-size:15px;
   }
 }
+
+
+/* ===== DPP v4.4 HOME SCREEN FIX ===== */
+#home.screen{
+  min-height:100dvh !important;
+  height:auto !important;
+  overflow:hidden !important;
+}
+
+#home .hero{
+  width:100% !important;
+  min-height:calc(100dvh - 44px) !important;
+  height:auto !important;
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:center !important;
+  justify-content:center !important;
+  text-align:center !important;
+  padding:28px 18px !important;
+  overflow:hidden !important;
+}
+
+#home .logo{
+  width:100% !important;
+  max-width:100% !important;
+  display:block !important;
+  text-align:center !important;
+  font-size:clamp(42px, 15vw, 120px) !important;
+  line-height:.92 !important;
+  letter-spacing:.03em !important;
+  white-space:nowrap !important;
+  transform:none !important;
+  margin:0 auto !important;
+}
+
+#home .subtitle{
+  width:100% !important;
+  max-width:100% !important;
+  text-align:center !important;
+  letter-spacing:.28em !important;
+  font-size:clamp(11px, 2.8vw, 15px) !important;
+  line-height:1.5 !important;
+  margin:18px auto 14px !important;
+  white-space:normal !important;
+}
+
+#home .online-pill{
+  position:static !important;
+  transform:none !important;
+  max-width:90% !important;
+  margin:0 auto 18px !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  white-space:nowrap !important;
+}
+
+#home .btn.big{
+  width:min(280px, 86vw) !important;
+  min-width:0 !important;
+  margin:0 auto !important;
+}
+
+#home .admin-enter{
+  position:absolute !important;
+  left:50% !important;
+  right:auto !important;
+  bottom:26px !important;
+  transform:translateX(-50%) !important;
+  width:auto !important;
+  max-width:80% !important;
+}
+
+@media(max-width:760px){
+  .app{
+    padding:10px !important;
+  }
+
+  #home .hero{
+    min-height:calc(100dvh - 20px) !important;
+    padding:28px 14px 92px !important;
+    border-radius:26px !important;
+  }
+
+  #home .logo{
+    font-size:clamp(40px, 14vw, 64px) !important;
+    -webkit-text-stroke:1.2px var(--pink2) !important;
+    text-shadow:0 0 8px rgba(255,60,168,.9),0 0 20px rgba(255,60,168,.65),0 0 32px rgba(49,86,255,.5) !important;
+  }
+
+  #home .subtitle{
+    letter-spacing:.22em !important;
+    font-size:11px !important;
+    margin-top:14px !important;
+  }
+
+  #home .online-pill{
+    font-size:12px !important;
+    padding:8px 13px !important;
+  }
+
+  #home .btn.big{
+    min-height:58px !important;
+    font-size:18px !important;
+  }
+
+  #home .admin-enter{
+    bottom:25px !important;
+    min-height:42px !important;
+    font-size:12px !important;
+  }
+}

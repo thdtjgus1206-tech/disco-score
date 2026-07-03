@@ -26,11 +26,22 @@ async function applyRemoteSettings(){
   DPP.settings.judgeCount=Number(s.judge_count||DPP.settings.judgeCount);
   DPP.settings.topCount=Number(s.top_count||DPP.settings.topCount);
   if(s.judges && typeof s.judges==='object'){
-    DPP.settings.judges={...DPP.settings.judges,...s.judges};
+    mergeRemoteJudges(s.judges);
   }
   saveLocalSettings();
 }
 
+
+function mergeRemoteJudges(remoteJudges){
+  if(!remoteJudges || typeof remoteJudges!=='object') return;
+  DPP.settings.judges ||= {};
+  Object.keys(remoteJudges).forEach(c=>{
+    DPP.settings.judges[c] ||= {name:'',pin:''};
+    const r=remoteJudges[c]||{};
+    if(r.name!==undefined && r.name!==null) DPP.settings.judges[c].name=String(r.name);
+    if(r.pin!==undefined && r.pin!==null && String(r.pin).trim()!=='') DPP.settings.judges[c].pin=String(r.pin).trim();
+  });
+}
 async function fetchParticipants(){const {data,error}=await sb.from('dpp_participants').select('*').eq('event_id',DPP_CONFIG.eventId).order('participant_order');if(error){console.error(error);return[]}return data||[]}
 async function fetchScores(){const {data,error}=await sb.from('dpp_scores').select('*').eq('event_id',DPP_CONFIG.eventId).eq('score_mode',currentMode()).order('updated_at',{ascending:false});if(error){console.error(error);return[]}return data||[]}
 async function fetchLogs(){const {data,error}=await sb.from('dpp_logs').select('*').eq('event_id',DPP_CONFIG.eventId).eq('score_mode',currentMode()).order('created_at',{ascending:false}).limit(80);if(error){console.error(error);return[]}return data||[]}

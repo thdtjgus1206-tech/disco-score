@@ -11,3 +11,23 @@ function circleOf(row){return row.participant_circle||row.participant_group||''}
 function saveLocalSettings(){localStorage.setItem('DPP_V4_SETTINGS',JSON.stringify(DPP.settings))}
 function loadLocalSettings(){try{const s=JSON.parse(localStorage.getItem('DPP_V4_SETTINGS')||'null');if(s)DPP.settings={...DPP.settings,...s,judges:{...DPP.settings.judges,...(s.judges||{})}}}catch(e){}}
 function go(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');if(id==='admin')renderAdmin();if(id==='score')renderScore();}
+
+const DEFAULT_JUDGE_PINS={A:'1111',B:'2222',C:'3333'};
+function getJudgePin(circle){
+  const saved=DPP.settings.judges?.[circle]?.pin;
+  if(saved!==undefined && saved!==null && String(saved).trim()!=='') return String(saved).trim();
+  return DEFAULT_JUDGE_PINS[circle] || '1111';
+}
+function getJudgeName(circle){
+  const saved=DPP.settings.judges?.[circle]?.name;
+  if(saved!==undefined && saved!==null && String(saved).trim()!=='') return String(saved).trim();
+  return `${circle} JUDGE`;
+}
+function resetDefaultJudgePins(){
+  DPP.settings.judges ||= {};
+  ['A','B','C'].forEach(c=>{
+    DPP.settings.judges[c] ||= {name:'',pin:''};
+    DPP.settings.judges[c].pin=DEFAULT_JUDGE_PINS[c];
+  });
+  saveLocalSettings();
+}
