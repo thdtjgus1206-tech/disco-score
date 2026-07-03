@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no" />
-  <title>D.I.S.C.O Preliminary Program V5.3</title>
+  <title>D.I.S.C.O Preliminary Program V6.1</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <meta name="theme-color" content="#02030a" />
@@ -33,7 +33,7 @@
     <div class="panel login-panel">
       <div class="top">
         <h2>ADMIN LOGIN</h2>
-        <button onclick="showScreen('home')" class="ghost small">HOME</button>
+        <div class="top-actions"><button onclick="showScreen('home')" class="ghost small">HOME</button><button onclick="showScreen('judgeLogin')" class="primary small">JUDGE START</button></div>
       </div>
       <label>ADMIN PIN</label>
       <input id="adminPinInput" type="password" inputmode="numeric" placeholder="기본 0000" />
@@ -61,7 +61,7 @@
     <div class="top">
       <div>
         <h2>DPP ADMIN</h2>
-        <p class="sub">D.I.S.C.O PRELIMINARY PROGRAM V5.3</p>
+        <p class="sub">D.I.S.C.O PRELIMINARY PROGRAM V6.1</p>
       </div>
       <button onclick="showScreen('home')" class="ghost small">HOME</button>
     </div>
@@ -85,7 +85,7 @@
         <button onclick="resetPins()" class="ghost small">RESET PIN</button>
       </div>
       <div id="judgeSettings" class="judge-grid"></div>
-      <button onclick="saveAdminSettings()" class="primary full">SAVE SETTINGS</button>
+      <button onclick="saveAdminSettings()" class="primary full">SAVE ALL SETTINGS</button>
     </div>
 
     <div class="panel">
@@ -95,12 +95,18 @@
         FILE SELECT
         <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" onchange="handleFile(event)" />
       </label>
-      <p id="fileName" class="sub">아직 파일 없음</p>
+      <p id="fileName" class="sub">아직 파일 없음</p><button onclick="prepareJudging()" class="primary full">SAVE ALL SETTINGS / 심사 준비</button><p class="sub">이 버튼을 누르면 현재 설정값으로 점수표를 다시 생성합니다.</p>
     </div>
 
     <div class="panel">
       <h3>PROGRESS</h3>
       <div id="progressList" class="progress-list"></div>
+    </div>
+
+    <div class="panel">
+      <h3>OFFLINE SYNC STATUS</h3>
+      <p class="sub">각 Judge 기기에서 인터넷 없이 저장된 점수는 해당 기기에서 SYNC UPLOAD 버튼을 눌러야 업로드됩니다.</p>
+      <div id="localPendingAdmin" class="sub">이 기기의 대기 점수: -</div>
     </div>
 
     <div class="panel">
@@ -177,6 +183,7 @@
     </div>
 
     <div class="progress-bar"><div id="scoreProgress"></div></div>
+    <div id="offlineStatus" class="offline-status">SYNC STATUS -</div>
 
     <div class="score-card">
       <div class="badges">
@@ -197,9 +204,13 @@
     </div>
 
     <div class="nav-row">
-      <button onclick="prevDancer()" class="ghost">PREV</button>
-      <button onclick="nextDancer()" class="ghost">NEXT</button>
-      <button onclick="loadJudgeQueue(true)" class="ghost">SYNC</button>
+      <button onclick="prevDancer()" class="ghost">← PREV</button>
+      <button onclick="nextDancer()" class="ghost">NEXT →</button>
+      <button onclick="syncPendingScores()" class="ghost">SYNC UPLOAD</button>
+    </div>
+    <div class="score-bottom-actions">
+      <button onclick="showScreen('home')" class="ghost">HOME</button>
+      <button onclick="showScreen('adminLogin')" class="ghost">ADMIN MODE</button>
     </div>
   </section>
 
