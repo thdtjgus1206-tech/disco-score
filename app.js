@@ -959,3 +959,12 @@ function saveBracketStoryImage(){
     a.click();
   });
 }
+
+
+window.addEventListener("error", (e) => {
+  console.error("DPP JS ERROR:", e.message, e.error);
+  const msg = document.getElementById("judgeLoginMsg");
+  if(msg && document.getElementById("judgeLogin")?.classList.contains("active")){
+    msg.textContent = "앱 실행 오류: " + e.message;
+  }
+});

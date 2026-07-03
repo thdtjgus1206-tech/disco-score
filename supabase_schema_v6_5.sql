@@ -1,0 +1,1 @@
+-- DPP v6.5: SQL은 다시 안 해도 됩니다. judgeLogin async 실행 오류 수정 버전입니다.
