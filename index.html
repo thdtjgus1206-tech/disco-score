@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no" />
-  <title>D.I.S.C.O Preliminary Program v4.5</title>
+  <title>D.I.S.C.O Preliminary Program V5</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <meta name="theme-color" content="#02030a" />
@@ -11,139 +11,114 @@
   <meta name="apple-mobile-web-app-title" content="D.I.S.C.O" />
   <link rel="stylesheet" href="style.css" />
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script defer src="config.js"></script>
-  <script defer src="state.js"></script>
-  <script defer src="db.js"></script>
-  <script defer src="csv.js"></script>
-  <script defer src="ranking.js"></script>
-  <script defer src="admin.js"></script>
-  <script defer src="judge.js"></script>
-  <script defer src="image.js"></script>
-  <script defer src="bracket.js"></script>
   <script defer src="app.js"></script>
 </head>
 <body>
 <main class="app">
-  <section id="home" class="screen active center">
+
+  <section id="home" class="screen active">
     <div class="hero">
-      <h1 class="logo">D.I.S.C.O</h1>
-      <div class="subtitle">PRELIMINARY PROGRAM</div>
-      <div id="onlinePill" class="online-pill">CONNECTING...</div>
-      <button class="btn big" onclick="go('judgeLogin')">JUDGE START</button>
-      <button class="btn ghost small admin-enter" onclick="go('adminLogin')">ADMIN MODE</button>
+      <h1>D.I.S.C.O</h1>
+      <p>PRELIMINARY PROGRAM</p>
+      <div id="statusPill" class="status">CONNECTING...</div>
+      <button onclick="showScreen('judgeLogin')" class="primary">JUDGE START</button>
+      <button onclick="showScreen('adminLogin')" class="ghost admin-btn">ADMIN MODE</button>
     </div>
   </section>
 
-  <section id="judgeLogin" class="screen center">
-    <div class="card login-card">
-      <div class="topbar"><h2 class="title small-title">JUDGE LOGIN</h2><button class="btn ghost small" onclick="go('home')">HOME</button></div>
-      <label>JUDGE CIRCLE</label>
-      <select id="judgeCircleSelect"></select>
-      <label>PIN</label>
-      <input id="judgePinInput" type="password" inputmode="numeric" placeholder="PIN" onkeydown="if(event.key==='Enter')judgeLogin()" />
-      <div id="judgeLoginError" class="login-error"></div>
-      <button class="btn big full-btn" onclick="judgeLogin()">LOGIN</button>
-    </div>
-  </section>
-
-  <section id="adminLogin" class="screen center">
-    <div class="card login-card">
-      <div class="topbar"><h2 class="title small-title">ADMIN</h2><button class="btn ghost small" onclick="go('home')">HOME</button></div>
+  <section id="adminLogin" class="screen">
+    <div class="panel login-panel">
+      <div class="top">
+        <h2>ADMIN LOGIN</h2>
+        <button onclick="showScreen('home')" class="ghost small">HOME</button>
+      </div>
       <label>ADMIN PIN</label>
-      <input id="adminPinInput" type="password" inputmode="numeric" placeholder="기본 0000" onkeydown="if(event.key==='Enter')adminLogin()" />
-      <div id="adminLoginError" class="login-error"></div>
-      <button class="btn big full-btn" onclick="adminLogin()">LOGIN</button>
+      <input id="adminPinInput" type="password" inputmode="numeric" placeholder="기본 0000" />
+      <div id="adminLoginMsg" class="msg"></div>
+      <button onclick="adminLogin()" class="primary full">LOGIN</button>
+    </div>
+  </section>
+
+  <section id="judgeLogin" class="screen">
+    <div class="panel login-panel">
+      <div class="top">
+        <h2>JUDGE LOGIN</h2>
+        <button onclick="showScreen('home')" class="ghost small">HOME</button>
+      </div>
+
+      <label>JUDGE CIRCLE</label>
+      <select id="judgeSelect"></select>
+
+      <label>PIN</label>
+      <input id="judgePinInput" type="password" inputmode="numeric" placeholder="A=1111 / B=2222 / C=3333" />
+      <div id="judgeLoginMsg" class="msg"></div>
+      <button onclick="judgeLogin()" class="primary full">LOGIN</button>
     </div>
   </section>
 
   <section id="admin" class="screen">
-    <div class="topbar">
-      <div><h2 class="title">DPP ADMIN</h2><div class="page-sub">D.I.S.C.O PRELIMINARY PROGRAM v4.5</div></div>
-      <div class="top-actions"><button class="btn ghost small" onclick="refreshAll()">REFRESH</button><button class="btn ghost small" onclick="go('home')">HOME</button></div>
+    <div class="top">
+      <div>
+        <h2>DPP ADMIN</h2>
+        <p class="sub">LOGIN STABLE TEST / V5</p>
+      </div>
+      <button onclick="showScreen('home')" class="ghost small">HOME</button>
     </div>
 
-    <div class="card status-card"><div class="status-row"><div><div class="card-title">Realtime Sync</div><div id="syncStatus" class="hint">연결 확인 중...</div></div><div class="pill">D.I.S.C.O</div></div></div>
-
-    <div class="card grid3">
-      <div><label>ADMIN PIN</label><input id="adminPinSetting" oninput="saveSettings()" /></div>
-      <div><label>JUDGE COUNT</label><input id="judgeCount" type="number" min="1" max="26" oninput="saveSettings()" /></div>
-      <div><label>TOP ?</label><input id="topCount" type="number" min="1" oninput="saveSettings()" /></div>
+    <div class="panel">
+      <h3>SYNC STATUS</h3>
+      <p id="adminStatus">-</p>
     </div>
 
-    <div class="card">
-      <label>SCORING MODE</label>
-      <div class="mode-row">
-        <div id="modeCircle" class="mode" onclick="setScoringMode('circle')"><b>Mode 1. Circle Judge</b><span>A Judge는 A Circle 참가자만, B Judge는 B Circle 참가자만 채점</span></div>
-        <div id="modeAll" class="mode" onclick="setScoringMode('all')"><b>Mode 2. All Judge</b><span>모든 Judge가 전체 Circle 참가자를 채점하고 합산 랭킹 생성</span></div>
+    <div class="panel">
+      <h3>SCORING MODE</h3>
+      <div class="mode-grid">
+        <button id="modeCircleBtn" onclick="setMode('circle')" class="mode">Mode 1<br><span>Circle Judge</span></button>
+        <button id="modeAllBtn" onclick="setMode('all')" class="mode">Mode 2<br><span>All Judge</span></button>
       </div>
     </div>
 
-    <div class="card">
-      <div class="topbar"><div><h3 class="card-title">져지 이름 / PIN</h3><div class="hint">PIN은 이 기기 localStorage에 저장됩니다.</div></div></div>
-      <div class="top-actions" style="margin-bottom:12px"><button class="btn ghost small" onclick="resetJudgePinsFromAdmin()">RESET JUDGE PIN</button></div><div id="judgeSettings" class="judge-name-grid"></div>
-    </div>
-
-    <div class="card">
-      <label>PARTICIPANT FILE</label>
-      <div class="upload">
-        <p class="upload-title">엑셀 / CSV 참가자 파일 업로드</p>
-        <p class="hint">A-1, B-1 같은 ORDER 앞 글자를 Circle로 인식합니다.</p>
-        <label class="btn ghost" for="fileInput">FILE SELECT</label>
-        <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" onchange="handleParticipantFile(event)" />
-        <div id="fileName" class="hint file-name">아직 파일 없음</div>
+    <div class="panel">
+      <div class="top">
+        <h3>JUDGE NAME / PIN</h3>
+        <button onclick="resetPins()" class="ghost small">RESET PIN</button>
       </div>
+      <div id="judgeSettings" class="judge-grid"></div>
+      <button onclick="saveAdminSettings()" class="primary full">SAVE SETTINGS</button>
     </div>
 
-    <div class="card"><h3 class="card-title">채점 진행률</h3><div id="progressList" class="progress-list"></div></div>
-
-    <div class="card live-rank-card">
-      <div class="topbar"><div><h3 class="card-title">실시간 랭킹</h3><div id="rankingInfo" class="hint">-</div></div></div>
-      <div class="live-tabs">
-        <button id="rankTabJudge" class="live-tab active" onclick="setRankView('judge')">져지별</button>
-        <button id="rankTabTotal" class="live-tab" onclick="setRankView('total')">합계</button>
-        <button id="rankTabLog" class="live-tab" onclick="setRankView('log')">최근 입력</button>
-      </div>
-      <div id="rankingList" class="live-rank-list"></div>
+    <div class="panel">
+      <h3>LOGIN TEST GUIDE</h3>
+      <p class="sub">
+        저장 후 Judge Login에서 A=1111, B=2222, C=3333으로 테스트해줘.<br>
+        이 버전은 로그인 안정화 전용이야. 로그인 성공 확인 후 채점 기능 붙일게.
+      </p>
     </div>
-
-    <div class="card">
-      <div class="topbar"><h3 class="card-title">결과 이미지</h3><div class="top-actions"><button class="btn small" onclick="saveUploadResultImage()">UPLOAD SAVE</button><button class="btn ghost small" onclick="saveFullResultImage()">FULL SAVE</button><button class="btn ghost small" onclick="downloadCSV()">CSV</button></div></div>
-      <div id="resultBoard" class="result-board"><div class="result-head"><div class="result-logo">D.I.S.C.O</div><div class="result-sub">PRELIMINARY RESULTS</div></div><div id="resultList"></div></div>
-      <div id="uploadResultBoard" class="result-board upload-board"><div class="result-head"><div class="result-logo">D.I.S.C.O</div><div class="result-sub">PRELIMINARY RESULTS</div></div><div id="uploadResultList"></div></div>
-    </div>
-
-    <div class="card bracket-card">
-      <div class="topbar"><div><h3 class="card-title">TOP 16 수동 대진표</h3><div class="hint">Seed 1~16 직접 입력</div></div><div class="top-actions"><button class="btn ghost small" onclick="clearBracketSeeds()">CLEAR</button><button class="btn small" onclick="saveBracketStoryImage()">STORY SAVE</button></div></div>
-      <div id="manualSeedInputs" class="manual-seed-grid"></div>
-      <div id="bracketBoard" class="bracket-board"></div>
-    </div>
-
-    <div class="card"><div class="topbar"><h3 class="card-title">참가자 미리보기</h3><button class="btn ghost small" onclick="loadParticipants()">LOAD</button></div><div class="list"><table><thead><tr><th>ORDER</th><th>CIRCLE</th><th>NAME</th><th>BATTLE NAME</th></tr></thead><tbody id="previewBody"></tbody></table></div></div>
   </section>
 
-  <section id="score" class="screen">
-    <div class="topbar score-topbar"><div><h2 class="title">D.I.S.C.O SCORE</h2><span id="circleTag" class="circle-chip">-</span></div><div class="top-actions"><button class="btn ghost small" onclick="loadJudgeParticipants(true)">SYNC</button><button class="btn ghost small" onclick="go('home')">HOME</button></div></div>
-    <div class="progress"><div id="bar" class="bar"></div></div>
-    <div class="card dancer-card">
-      <div class="meta"><span id="orderBadge" class="badge">ORDER -</span><span id="circleBadge" class="badge">CIRCLE -</span><span id="judgeBadge" class="badge">JUDGE -</span></div>
-      <div id="judgeNameLine" class="judge-name-line">JUDGE NAME</div>
-      <div id="dancerName" class="dancer-name">NO DANCER</div>
-      <div id="realName" class="battle-name">REAL NAME</div>
-      <div id="scoreDisplay" class="score-display">0</div>
-      <div class="keypad">
-        <button class="key" onclick="tap('1')">1</button><button class="key" onclick="tap('2')">2</button><button class="key" onclick="tap('3')">3</button>
-        <button class="key" onclick="tap('4')">4</button><button class="key" onclick="tap('5')">5</button><button class="key" onclick="tap('6')">6</button>
-        <button class="key" onclick="tap('7')">7</button><button class="key" onclick="tap('8')">8</button><button class="key" onclick="tap('9')">9</button>
-        <button class="key" onclick="tap('.')">.</button><button class="key" onclick="tap('0')">0</button><button class="key func" onclick="backspace()">⌫</button>
-        <button class="key wide func" onclick="clearScore()">CLEAR</button><button class="key ok" onclick="saveScoreAndNext()">OK</button>
+  <section id="judgeHome" class="screen">
+    <div class="top">
+      <div>
+        <h2 id="judgeTitle">JUDGE</h2>
+        <p id="judgeSub" class="sub">LOGIN SUCCESS</p>
       </div>
+      <button onclick="logout()" class="ghost small">LOGOUT</button>
     </div>
-    <div class="footer-actions score-actions"><button class="btn ghost" onclick="prevDancer()">PREV</button><button class="btn ghost" onclick="nextDancer()">NEXT</button><button class="btn ghost" onclick="loadJudgeParticipants(true)">SYNC</button></div>
+
+    <div class="panel success-panel">
+      <h3>LOGIN SUCCESS</h3>
+      <p id="judgeSuccessText"></p>
+    </div>
+
+    <div class="panel">
+      <h3>NEXT STEP</h3>
+      <p class="sub">
+        여기까지 성공하면 다음 버전에서 참가자 업로드 / 채점 화면 / 실시간 랭킹을 붙일 거야.
+      </p>
+    </div>
   </section>
 
-  <div id="bracketStoryBoard" class="bracket-story-board"><div class="bracket-story-inner"><div class="bracket-story-logo">D.I.S.C.O</div><div class="bracket-story-sub">TOP 16 BATTLE BRACKET</div><div id="bracketStoryContent"></div></div></div>
 </main>
 </body>
 </html>
