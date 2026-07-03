@@ -112,12 +112,27 @@ function setStatus(text, ok=true){
   if(admin) admin.textContent = text;
 }
 function getCircles(){
-  return Array.from({ length: Number(state.settings.judgeCount) || 3 }, (_, i) =>
-    String.fromCharCode(65 + i)
-  );
+  const count = Math.max(3, Number(state.settings.judgeCount) || 3);
+  return Array.from({ length: count }, (_, i) => String.fromCharCode(65 + i));
 }
 function currentMode(){ return state.settings.scoringMode || "circle"; }
 function circleOf(row){ return row.participant_circle || ""; }
+
+
+function defaultJudgePin(circle){
+  if(circle === "A") return "1111";
+  if(circle === "B") return "2222";
+  if(circle === "C") return "3333";
+  return "1111";
+}
+function allowedJudgePins(circle){
+  const saved = String(state.settings.judges?.[circle]?.pin || "").trim();
+  const def = defaultJudgePin(circle);
+  return Array.from(new Set([saved, def].filter(Boolean)));
+}
+function judgeDisplayName(circle){
+  return String(state.settings.judges?.[circle]?.name || `${circle} JUDGE`).trim();
+}
 
 function normalizeSettings(remote){
   const base = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
@@ -129,7 +144,7 @@ function normalizeSettings(remote){
     Object.keys(remote.judges).forEach(circle => {
       base.judges[circle] = {
         name: String(remote.judges[circle]?.name || `${circle} JUDGE`),
-        pin: String(remote.judges[circle]?.pin || DEFAULT_SETTINGS.judges[circle]?.pin || "1111")
+        pin: String(remote.judges[circle]?.pin || DEFAULT_SETTINGS.judges[circle]?.pin || defaultJudgePin(circle))
       };
     });
   }
@@ -227,10 +242,21 @@ async function refreshScoresOnly(){
 function renderJudgeSelect(){
   const select = el("judgeSelect");
   if(!select) return;
+
   const keep = select.value || state.selectedJudge || "A";
-  select.innerHTML = getCircles().map(c => `<option value="${c}">${c} JUDGE</option>`).join("");
+  select.innerHTML = getCircles().map(c => {
+    const name = judgeDisplayName(c);
+    return `<option value="${c}">${c} JUDGE · ${escapeHtml(name)}</option>`;
+  }).join("");
+
   select.value = [...select.options].some(o => o.value === keep) ? keep : "A";
-  select.onchange = () => { state.selectedJudge = select.value; };
+  state.selectedJudge = select.value;
+
+  select.onchange = () => {
+    state.selectedJudge = select.value;
+    const msg = el("judgeLoginMsg");
+    if(msg) msg.textContent = "";
+  };
 }
 function adminLogin(){
   const pin = el("adminPinInput").value.trim();
@@ -243,20 +269,23 @@ function adminLogin(){
   showScreen("admin");
 }
 async function judgeLogin(){
+  const select = el("judgeSelect");
+  const selectedBeforeLoad = select ? (select.value || state.selectedJudge || "A") : (state.selectedJudge || "A");
+  const inputPin = el("judgePinInput").value.trim();
+
+  // 설정을 불러오되, 사용자가 선택한 Judge 값은 절대 A로 초기화하지 않는다.
   await loadSettings();
   renderJudgeSelect();
 
-  const select = el("judgeSelect");
-  const circle = select ? select.value : "A";
-  const pin = el("judgePinInput").value.trim();
-  const judge = state.settings.judges[circle];
-
-  if(!judge){
-    el("judgeLoginMsg").textContent = `${circle} JUDGE 설정이 없어.`;
-    return;
+  if(select){
+    select.value = [...select.options].some(o => o.value === selectedBeforeLoad) ? selectedBeforeLoad : "A";
   }
-  const expected = String(judge.pin || "").trim();
-  if(pin !== expected){
+
+  const circle = select ? select.value : selectedBeforeLoad;
+  state.selectedJudge = circle;
+
+  const pins = allowedJudgePins(circle);
+  if(!pins.includes(inputPin)){
     el("judgeLoginMsg").textContent = `${circle} JUDGE PIN이 틀렸어. 현재 선택: ${circle}`;
     return;
   }
@@ -354,7 +383,7 @@ async function resetPins(){
 function buildScoreRowsFromParticipants(participants, mode=currentMode()){
   const rows = [];
   getCircles().forEach(circle => {
-    const judge = state.settings.judges[circle] || { name:`${circle} JUDGE` };
+    const judge = state.settings.judges[circle] || { name:judgeDisplayName(circle) };
     participants.forEach(p => {
       const pCircle = String(p.participant_circle || "").trim();
       if(mode === "circle" && pCircle !== circle) return;
@@ -397,7 +426,7 @@ function buildQueueDirectlyFromParticipants(circle){
       String(s.judge_circle || "").trim() === circle &&
       String(s.participant_order || "").trim() === String(p.participant_order || "").trim()
     );
-    const judge = state.settings.judges[circle] || { name:`${circle} JUDGE` };
+    const judge = state.settings.judges[circle] || { name:judgeDisplayName(circle) };
     return existing || {
       event_id: DPP_CONFIG.eventId,
       score_mode: mode,
@@ -573,7 +602,7 @@ async function loadJudgeQueue(showAlert=false){
 function renderScore(){
   if(state.role !== "judge") return;
   const circle = state.selectedJudge;
-  const judge = state.settings.judges[circle] || { name:`${circle} JUDGE` };
+  const judge = state.settings.judges[circle] || { name:judgeDisplayName(circle) };
   const item = state.queue[state.queueIndex];
 
   el("scoreHeader").textContent = `${circle} JUDGE`;
@@ -679,7 +708,7 @@ async function saveScoreAndNext(){
   if(Number.isNaN(score)){ alert("점수를 입력해줘."); return; }
 
   const circle = state.selectedJudge;
-  const judge = state.settings.judges[circle] || { name:`${circle} JUDGE` };
+  const judge = state.settings.judges[circle] || { name:judgeDisplayName(circle) };
 
   const row = {
     ...item,
