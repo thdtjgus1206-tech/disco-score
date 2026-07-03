@@ -38,15 +38,17 @@ async function safeSaveParticipantRows(rows){
       .maybeSingle();
     if(error) throw error;
 
+    const payload = {
+      participant_circle: row.participant_circle,
+      participant_name: row.participant_name,
+      battle_name: row.battle_name,
+      updated_at: row.updated_at || new Date().toISOString()
+    };
+
     if(data && data.id){
       const { error: updateError } = await supabaseClient
         .from("dpp_participants")
-        .update({
-          participant_circle: row.participant_circle,
-          participant_name: row.participant_name,
-          battle_name: row.battle_name,
-          updated_at: row.updated_at || new Date().toISOString()
-        })
+        .update(payload)
         .eq("id", data.id);
       if(updateError) throw updateError;
     }else{
@@ -59,28 +61,32 @@ async function safeSaveParticipantRows(rows){
 }
 
 async function safeSaveScoreRow(row){
+  // 기존 DB에 남아있는 UNIQUE 조건이
+  // event_id + judge_circle + participant_order 기준이라 여기에 맞춰 먼저 찾는다.
   const { data, error } = await supabaseClient
     .from("dpp_scores")
     .select("id")
     .eq("event_id", row.event_id)
-    .eq("score_mode", row.score_mode)
     .eq("judge_circle", row.judge_circle)
     .eq("participant_order", row.participant_order)
     .maybeSingle();
 
   if(error) throw error;
 
+  const payload = {
+    score_mode: row.score_mode,
+    judge_name: row.judge_name,
+    participant_circle: row.participant_circle,
+    participant_name: row.participant_name,
+    battle_name: row.battle_name,
+    score: row.score,
+    updated_at: row.updated_at || new Date().toISOString()
+  };
+
   if(data && data.id){
     const { error: updateError } = await supabaseClient
       .from("dpp_scores")
-      .update({
-        judge_name: row.judge_name,
-        participant_circle: row.participant_circle,
-        participant_name: row.participant_name,
-        battle_name: row.battle_name,
-        score: row.score,
-        updated_at: row.updated_at || new Date().toISOString()
-      })
+      .update(payload)
       .eq("id", data.id);
     if(updateError) throw updateError;
   }else{
