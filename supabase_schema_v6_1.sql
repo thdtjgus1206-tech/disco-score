@@ -1,0 +1,2 @@
+-- DPP v6.1: code no longer requires ON CONFLICT unique constraints for scores/participants.
+-- SQL은 다시 안 해도 됩니다.

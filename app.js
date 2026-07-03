@@ -25,6 +25,78 @@ const state = {
 
 let supabaseClient = null;
 
+
+/* stable save v6.1 - no upsert dependency */
+
+async function safeSaveParticipantRows(rows){
+  for(const row of rows){
+    const { data, error } = await supabaseClient
+      .from("dpp_participants")
+      .select("id")
+      .eq("event_id", row.event_id)
+      .eq("participant_order", row.participant_order)
+      .maybeSingle();
+    if(error) throw error;
+
+    if(data && data.id){
+      const { error: updateError } = await supabaseClient
+        .from("dpp_participants")
+        .update({
+          participant_circle: row.participant_circle,
+          participant_name: row.participant_name,
+          battle_name: row.battle_name,
+          updated_at: row.updated_at || new Date().toISOString()
+        })
+        .eq("id", data.id);
+      if(updateError) throw updateError;
+    }else{
+      const { error: insertError } = await supabaseClient
+        .from("dpp_participants")
+        .insert(row);
+      if(insertError) throw insertError;
+    }
+  }
+}
+
+async function safeSaveScoreRow(row){
+  const { data, error } = await supabaseClient
+    .from("dpp_scores")
+    .select("id")
+    .eq("event_id", row.event_id)
+    .eq("score_mode", row.score_mode)
+    .eq("judge_circle", row.judge_circle)
+    .eq("participant_order", row.participant_order)
+    .maybeSingle();
+
+  if(error) throw error;
+
+  if(data && data.id){
+    const { error: updateError } = await supabaseClient
+      .from("dpp_scores")
+      .update({
+        judge_name: row.judge_name,
+        participant_circle: row.participant_circle,
+        participant_name: row.participant_name,
+        battle_name: row.battle_name,
+        score: row.score,
+        updated_at: row.updated_at || new Date().toISOString()
+      })
+      .eq("id", data.id);
+    if(updateError) throw updateError;
+  }else{
+    const { error: insertError } = await supabaseClient
+      .from("dpp_scores")
+      .insert(row);
+    if(insertError) throw insertError;
+  }
+}
+
+async function safeInsertScoreRows(rows){
+  for(const row of rows){
+    await safeSaveScoreRow(row);
+  }
+}
+
 /* offline sync v6 */
 function pendingKey(){
   return `DPP_PENDING_${DPP_CONFIG.eventId}_${currentMode()}_${state.selectedJudge || "UNKNOWN"}`;
@@ -472,8 +544,7 @@ async function handleFile(e){
       const participants = parseParticipants(rows);
       if(!participants.length){ alert("참가자를 읽지 못했어."); return; }
 
-      const { error } = await supabaseClient.from("dpp_participants").upsert(participants, { onConflict:"event_id,participant_order" });
-      if(error) throw error;
+      await safeSaveParticipantRows(participants);
 
       state.participants = participants;
       await createEmptyScores();
@@ -501,11 +572,9 @@ async function createEmptyScores(){
     return;
   }
 
-  const { error } = await supabaseClient
-    .from("dpp_scores")
-    .upsert(rows, { onConflict:"event_id,score_mode,judge_circle,participant_order" });
-
-  if(error){
+  try{
+    await safeInsertScoreRows(rows);
+  }catch(error){
     console.error("createEmptyScores error:", error);
     alert("점수표 생성 오류: " + error.message);
     return;
@@ -595,10 +664,7 @@ function clearScore(){
 }
 
 async function uploadOneScore(row){
-  const { error } = await supabaseClient
-    .from("dpp_scores")
-    .upsert(row, { onConflict:"event_id,score_mode,judge_circle,participant_order" });
-  if(error) throw error;
+  await safeSaveScoreRow(row);
 
   await supabaseClient.from("dpp_logs").insert({
     event_id: row.event_id,
