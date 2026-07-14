@@ -3,6 +3,7 @@ const DEFAULTS = {
   adminPin: "0000",
   mode: "circle",
   topCount: 16,
+  isReady: false,
   judges: {
     A: {name:"A JUDGE", pin:"1111"},
     B: {name:"B JUDGE", pin:"2222"},
@@ -86,7 +87,11 @@ async function init(){
 
 function subscribe(){
   sb.channel("dpp-v7")
-    .on("postgres_changes",{event:"*",schema:"public",table:"dpp_settings"}, async()=>{await loadSettings(); if(S.role==="admin") renderAdmin();})
+    .on("postgres_changes",{event:"*",schema:"public",table:"dpp_settings"}, async()=>{
+      await loadSettings();
+      if(S.role==="admin") renderAdmin();
+      if(S.role==="judge") await buildJudgeQueue();
+    })
     .on("postgres_changes",{event:"*",schema:"public",table:"dpp_participants"}, refreshAll)
     .on("postgres_changes",{event:"*",schema:"public",table:"dpp_scores"}, refreshScoresOnly)
     .on("postgres_changes",{event:"*",schema:"public",table:"dpp_logs"}, refreshScoresOnly)
@@ -102,6 +107,7 @@ async function ensureSettingsRow(){
       judge_count:3,
       top_count:S.settings.topCount,
       judges:S.settings.judges,
+      is_ready:Boolean(S.settings.isReady),
       updated_at:new Date().toISOString()
     },{onConflict:"event_id"});
   }catch(e){
@@ -114,6 +120,8 @@ async function loadSettings(){
   if(error) throw error;
   if(data){
     S.settings.mode = data.scoring_mode || DEFAULTS.mode;
+    S.settings.topCount = Number(data.top_count || DEFAULTS.topCount);
+    S.settings.isReady = data.is_ready === true;
     if(data.judges && typeof data.judges === "object"){
       circles().forEach(c => {
         S.settings.judges[c] = {
@@ -134,6 +142,7 @@ async function saveSettings(){
     judge_count:3,
     top_count:S.settings.topCount,
     judges:S.settings.judges,
+    is_ready:Boolean(S.settings.isReady),
     updated_at:new Date().toISOString()
   },{onConflict:"event_id"});
   if(error) throw error;
@@ -239,7 +248,7 @@ function renderAdmin(){
   $("nameA").value = judgeName("A"); $("pinA").value = S.settings.judges.A.pin;
   $("nameB").value = judgeName("B"); $("pinB").value = S.settings.judges.B.pin;
   $("nameC").value = judgeName("C"); $("pinC").value = S.settings.judges.C.pin;
-  $("adminInfo").textContent = `MODE ${mode().toUpperCase()} · 참가자 ${S.participants.length}명 · 점수row ${S.scores.length}개`;
+  $("adminInfo").textContent = `${S.settings.isReady ? "심사 준비 완료" : "심사 준비 전"} · MODE ${mode().toUpperCase()} · 참가자 ${S.participants.length}명 · 점수row ${S.scores.length}개`;
   renderParticipants();
   renderProgress();
   renderRanking();
@@ -253,6 +262,7 @@ function readAdminSettings(){
 }
 async function saveAllSettings(){
   readAdminSettings();
+  S.settings.isReady = false;
   await saveSettings();
   await refreshAll();
   alert("저장 완료");
@@ -270,6 +280,8 @@ async function clearAllData(){
     await sb.from("dpp_logs").delete().eq("event_id", DPP_CONFIG.eventId);
     await sb.from("dpp_scores").delete().eq("event_id", DPP_CONFIG.eventId);
     await sb.from("dpp_participants").delete().eq("event_id", DPP_CONFIG.eventId);
+    S.settings.isReady = false;
+    await saveSettings();
     localStorage.clear();
     S.participants = [];
     S.scores = [];
@@ -287,12 +299,17 @@ async function clearAllData(){
 
 async function prepareJudging(){
   readAdminSettings();
+  S.settings.isReady = false;
   await saveSettings();
   S.participants = await fetchParticipants();
   if(!S.participants.length){ alert("참가자 명단이 없어."); return; }
+
   const rows = makeScoreRows(S.participants);
   const {error} = await sb.from("dpp_scores").upsert(rows,{onConflict:"event_id,score_mode,judge_circle,participant_order"});
   if(error){ alert("점수표 생성 오류: " + error.message + "\\n필수 SQL 실행 여부를 확인해줘."); return; }
+
+  S.settings.isReady = true;
+  await saveSettings();
   await refreshAll();
   alert(`심사 준비 완료 · ${mode()} · ${S.participants.length}명`);
 }
@@ -345,6 +362,8 @@ async function handleFile(e){
       }
       const participants=parseRows(rows);
       if(!participants.length){ alert("참가자를 읽지 못했어."); return; }
+      S.settings.isReady = false;
+      await saveSettings();
       const {error}=await sb.from("dpp_participants").upsert(participants,{onConflict:"event_id,participant_order"});
       if(error){ alert("참가자 저장 오류: " + error.message); return; }
       await refreshAll();
@@ -368,6 +387,16 @@ function renderParticipants(){
 }
 
 async function buildJudgeQueue(){
+  if(!S.settings.isReady){
+    S.participants = [];
+    S.scores = [];
+    S.queue = [];
+    S.index = 0;
+    S.input = "";
+    renderScore();
+    return;
+  }
+
   S.participants = await fetchParticipants();
   S.scores = await fetchScores();
 
@@ -397,13 +426,13 @@ function renderScore(){
   if(S.role!=="judge") return;
   $("scoreTitle").textContent = `${S.judge} JUDGE`;
   $("scoreMeta").textContent = `${judgeName(S.judge)} · ${mode()==="all" ? "Mode 2 / All Judge" : "Mode 1 / Circle Judge"}`;
-  $("debugLine").textContent = `QUEUE ${S.queue.length} · 참가자 ${S.participants.length} · 점수row ${S.scores.length}`;
+  $("debugLine").textContent = `${S.settings.isReady ? "READY" : "WAITING"} · QUEUE ${S.queue.length} · 참가자 ${S.participants.length} · 점수row ${S.scores.length}`;
   $("scoreBar").style.width = S.queue.length ? `${(S.index+1)/S.queue.length*100}%` : "0%";
   updateOfflineStatus();
   const item=S.queue[S.index];
   if(!item){
     $("orderBadge").textContent="ORDER -"; $("circleBadge").textContent="CIRCLE -";
-    $("battleName").textContent="NO DANCER"; $("realName").textContent="로그인 성공 / 참가자 데이터 로딩 중 또는 관리자에서 심사 준비 버튼 확인";
+    $("battleName").textContent=S.settings.isReady ? "NO DANCER" : "심사 준비 중"; $("realName").textContent=S.settings.isReady ? "배정된 참가자가 없습니다." : "관리자가 SAVE ALL SETTINGS / 심사 준비를 누르면 자동으로 시작됩니다.";
     $("scoreDisplay").textContent="0"; return;
   }
   $("orderBadge").textContent="ORDER "+item.participant_order;
