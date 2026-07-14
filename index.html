@@ -3,23 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
-  <title>D.I.S.C.O Preliminary Program V7.3</title>
+  <title>D.I.S.C.O Preliminary Program V7.5 ROUND 2</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <meta name="theme-color" content="#02030a">
-  <link rel="stylesheet" href="style.css?v=20260714-row-delete-1">
+  <link rel="stylesheet" href="style.css?v=20260714-round2-1">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script defer src="config.js"></script>
-  <script defer src="app.js?v=20260714-row-delete-1"></script>
+  <script defer src="app.js?v=20260714-round2-1"></script>
 </head>
 <body>
 <main class="app">
   <section id="home" class="screen active">
     <div class="hero">
       <h1>D.I.S.C.O</h1>
-      <p>PRELIMINARY PROGRAM V7.3 BATCH REVIEW</p>
+      <p>PRELIMINARY PROGRAM V7.5 ROUND 2 BATCH REVIEW</p>
       <div id="statusPill" class="status">LOADING...</div>
       <button class="primary" onclick="openJudgeLogin()">JUDGE START</button>
       <button class="ghost admin-btn" onclick="show('adminLogin')">ADMIN MODE</button>
@@ -54,7 +54,7 @@
 
   <section id="admin" class="screen">
     <div class="top">
-      <div><h2>DPP ADMIN</h2><p class="sub">V7 CLEAN STABLE</p></div>
+      <div><h2>DPP ADMIN</h2><p class="sub">V7.5 ROUND 2 AUTO FLOW</p></div>
       <div class="top-actions">
         <button class="ghost small" onclick="show('home')">HOME</button>
         <button class="primary small" onclick="openJudgeLogin()">JUDGE START</button>
@@ -94,6 +94,18 @@
       <button class="primary full" onclick="prepareJudging()">SAVE ALL SETTINGS / 심사 준비</button>
       <button class="ghost full" onclick="clearAllData()">CLEAR ALL DATA</button>
       <p class="sub">새 테스트 전에는 CLEAR ALL DATA로 참가자/점수/로그를 초기화할 수 있어.</p>
+    </div>
+
+
+    <div class="panel round2-panel">
+      <div class="top"><div><h3>1차 → 2차 예선 자동 전환</h3><p id="round2Info" class="sub">-</p></div></div>
+      <p class="sub">현재 순위에서 진출자를 자동으로 찾고, 1차 순위 기준으로 다시 정렬한 뒤 1번부터 새 번호를 부여합니다. 10명씩 A조, B조, C조…로 자동 편성합니다.</p>
+      <div class="round2-actions">
+        <button class="ghost" onclick="buildRound2Preview()">2차 진출자 PREVIEW</button>
+        <button class="primary" onclick="startRound2()">2차 예선 시작</button>
+      </div>
+      <div id="round2Preview" class="round2-preview"><div class="empty">PREVIEW 버튼을 누르면 2차 예선 진출자와 새 번호/조가 표시됩니다.</div></div>
+      <p class="sub round2-warning">2차 예선 시작 전 1차 명단과 점수는 Supabase ARCHIVE에 보관됩니다.</p>
     </div>
 
     <div class="panel">

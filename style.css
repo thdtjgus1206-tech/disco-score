@@ -183,3 +183,10 @@ button,input,select{font:inherit}button{border:0;cursor:pointer}.app{width:min(1
 .result-delete:hover{background:#ff53bb;color:#fff}
 .result-board.exporting .result-delete{display:none!important}
 .result-person{padding-right:34px}
+
+.round2-panel{border:1px solid rgba(255,255,255,.18)}
+.round2-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}
+.round2-actions button{width:100%}
+.round2-preview{margin-top:12px;max-height:480px;overflow:auto}
+.round2-warning{margin-top:12px;font-weight:700}
+@media(max-width:640px){.round2-actions{grid-template-columns:1fr}}

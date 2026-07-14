@@ -4,6 +4,7 @@ const DEFAULTS = {
   mode: "circle",
   topCount: 16,
   isReady: false,
+  prelimRound: 1,
   judges: {
     A: {name:"A JUDGE", pin:"1111"},
     B: {name:"B JUDGE", pin:"2222"},
@@ -25,7 +26,8 @@ const S = {
   resultEdits: {},
   batchStart: 0,
   batchDrafts: {},
-  reviewRows: []
+  reviewRows: [],
+  round2Preview: []
 };
 
 let sb = null;
@@ -167,6 +169,7 @@ async function ensureSettingsRow(){
       top_count:S.settings.topCount,
       judges:S.settings.judges,
       is_ready:Boolean(S.settings.isReady),
+      prelim_round:Number(S.settings.prelimRound || 1),
       updated_at:new Date().toISOString()
     },{onConflict:"event_id"});
   }catch(e){
@@ -181,6 +184,7 @@ async function loadSettings(){
     S.settings.mode = data.scoring_mode || DEFAULTS.mode;
     S.settings.topCount = Number(data.top_count || DEFAULTS.topCount);
     S.settings.isReady = data.is_ready === true;
+    S.settings.prelimRound = Number(data.prelim_round || 1);
     if(data.judges && typeof data.judges === "object"){
       circles().forEach(c => {
         S.settings.judges[c] = {
@@ -202,6 +206,7 @@ async function saveSettings(){
     top_count:S.settings.topCount,
     judges:S.settings.judges,
     is_ready:Boolean(S.settings.isReady),
+    prelim_round:Number(S.settings.prelimRound || 1),
     updated_at:new Date().toISOString()
   },{onConflict:"event_id"});
   if(error) throw error;
@@ -232,7 +237,7 @@ async function refreshScoresOnly(){
   S.scores = await fetchScores();
   S.logs = await fetchLogs();
   if(S.role === "admin"){
-    if($("adminInfo")) $("adminInfo").textContent = `${S.settings.isReady ? "심사 준비 완료" : "심사 준비 전"} · MODE ${mode().toUpperCase()} · 참가자 ${S.participants.length}명 · 점수row ${S.scores.length}개`;
+    if($("adminInfo")) $("adminInfo").textContent = `${currentRoundLabel()} · ${S.settings.isReady ? "심사 준비 완료" : "심사 준비 전"} · MODE ${mode().toUpperCase()} · 참가자 ${S.participants.length}명 · 점수row ${S.scores.length}개`;
     renderProgress(); renderRanking();
     if(!document.activeElement?.isContentEditable) renderResults();
   }
@@ -342,11 +347,12 @@ function renderAdmin(){
   $("nameB").value = judgeName("B"); $("pinB").value = S.settings.judges.B.pin;
   $("nameC").value = judgeName("C"); $("pinC").value = S.settings.judges.C.pin;
   if($("topCount")) $("topCount").value = S.settings.topCount;
-  $("adminInfo").textContent = `${S.settings.isReady ? "심사 준비 완료" : "심사 준비 전"} · MODE ${mode().toUpperCase()} · 참가자 ${S.participants.length}명 · 점수row ${S.scores.length}개`;
+  $("adminInfo").textContent = `${currentRoundLabel()} · ${S.settings.isReady ? "심사 준비 완료" : "심사 준비 전"} · MODE ${mode().toUpperCase()} · 참가자 ${S.participants.length}명 · 점수row ${S.scores.length}개`;
   renderParticipants();
   renderProgress();
   renderRanking();
   renderResults();
+  renderRound2Preview();
 }
 function setMode(m){ S.settings.mode = m; S.resultEdits = {}; renderAdmin(); }
 function readAdminSettings(){
@@ -678,6 +684,120 @@ async function confirmBatchScores(){
     S.input=''; S.reviewRows=[]; show('score'); renderScore();
   }catch(e){ console.error(e); alert('점수 저장 오류: '+e.message); }
   finally{ btn.disabled=false; btn.textContent='CONFIRM & UPLOAD / 점수 확정'; }
+}
+
+
+function currentRoundLabel(){
+  return S.settings.prelimRound === 2 ? "2차 예선" : "1차 예선";
+}
+function rankedQualifiersForRound2(){
+  const topN = Math.max(1, Number(S.settings.topCount || 10));
+  if(mode()==="circle"){
+    const rows=[];
+    circles().forEach(c=>{
+      cutoffRows(judgeRank(c), "score").forEach(r=>{
+        rows.push({...r, source_circle:c, source_rank:r.rank});
+      });
+    });
+    return rows.sort((a,b)=>
+      Number(a.source_rank)-Number(b.source_rank) ||
+      circles().indexOf(a.source_circle)-circles().indexOf(b.source_circle) ||
+      compareParticipantOrder(a.participant_order,b.participant_order)
+    );
+  }
+  return cutoffRows(totalRank(), "total")
+    .map(r=>({...r,source_circle:r.participant_circle,source_rank:r.rank}))
+    .sort((a,b)=>Number(a.source_rank)-Number(b.source_rank)||compareParticipantOrder(a.participant_order,b.participant_order));
+}
+function buildRound2Preview(){
+  const qualifiers=rankedQualifiersForRound2();
+  S.round2Preview=qualifiers.map((r,i)=>{
+    const n=i+1;
+    const groupIndex=Math.floor(i/10);
+    const newCircle=String.fromCharCode(65+groupIndex);
+    return {
+      ...r,
+      new_order:`${newCircle}-${(i%10)+1}`,
+      new_circle:newCircle,
+      round2_number:n
+    };
+  });
+  renderRound2Preview();
+}
+function renderRound2Preview(){
+  const box=$("round2Preview");
+  const info=$("round2Info");
+  if(!box) return;
+  if(info) info.textContent=`현재 ${currentRoundLabel()} · TOP 설정 ${S.settings.topCount} · ${mode()==="circle"?"서클별 진출":"전체 합계 진출"}`;
+  if(!S.round2Preview.length){
+    box.innerHTML='<div class="empty">PREVIEW 버튼을 누르면 2차 예선 진출자와 새 번호/조가 표시됩니다.</div>';
+    return;
+  }
+  box.innerHTML=`<div class="table-wrap"><table><thead><tr><th>2차 ORDER</th><th>2차 조</th><th>BATTLE</th><th>본명</th><th>1차 서클</th><th>1차 순위</th></tr></thead><tbody>${
+    S.round2Preview.map(r=>`<tr><td>${esc(r.new_order)}</td><td>${esc(r.new_circle)}조</td><td>${esc(r.battle_name||"-")}</td><td>${esc(r.participant_name||"-")}</td><td>${esc(r.source_circle)}</td><td>#${esc(r.source_rank)}</td></tr>`).join("")
+  }</tbody></table></div>`;
+}
+async function startRound2(){
+  try{
+    buildRound2Preview();
+    if(!S.round2Preview.length){ alert("2차 예선 진출자를 만들 수 없어. 1차 예선 점수를 먼저 확인해줘."); return; }
+    const incomplete = mode()==="circle"
+      ? circles().some(c=>S.participants.filter(p=>p.participant_circle===c).some(p=>!S.scores.some(s=>s.judge_circle===c&&s.participant_order===p.participant_order&&s.score!==null&&s.score!==undefined)))
+      : S.participants.some(p=>circles().some(c=>!S.scores.some(s=>s.judge_circle===c&&s.participant_order===p.participant_order&&s.score!==null&&s.score!==undefined)));
+    if(incomplete && !confirm("아직 모든 참가자의 채점이 끝나지 않았어. 현재 순위 기준으로 2차 진출자를 만들까?")) return;
+    if(!confirm(`2차 예선 진출자 ${S.round2Preview.length}명을 확정할까?\n\n1차 점수/명단은 ARCHIVE에 보관하고, 현재 채점 화면은 2차 예선용으로 교체됩니다.`)) return;
+
+    const archivePayload={
+      round:1,
+      scoring_mode:mode(),
+      top_count:S.settings.topCount,
+      participants:S.participants,
+      scores:S.scores,
+      created_at:new Date().toISOString()
+    };
+    const {error:archiveError}=await sb.from("dpp_round_archives").insert({
+      event_id:DPP_CONFIG.eventId,
+      round_no:1,
+      payload:archivePayload
+    });
+    if(archiveError) throw new Error("1차 기록 보관 오류: "+archiveError.message+" / ROUND2 SQL을 먼저 실행해줘.");
+
+    const nextParticipants=S.round2Preview.map(r=>({
+      event_id:DPP_CONFIG.eventId,
+      participant_order:r.new_order,
+      participant_circle:r.new_circle,
+      participant_name:r.participant_name,
+      battle_name:r.battle_name,
+      updated_at:new Date().toISOString()
+    }));
+
+    S.settings.isReady=false;
+    S.settings.prelimRound=2;
+    await saveSettings();
+
+    await sb.from("dpp_logs").delete().eq("event_id",DPP_CONFIG.eventId);
+    await sb.from("dpp_scores").delete().eq("event_id",DPP_CONFIG.eventId);
+    await sb.from("dpp_participants").delete().eq("event_id",DPP_CONFIG.eventId);
+
+    const {error:participantError}=await sb.from("dpp_participants").insert(nextParticipants);
+    if(participantError) throw participantError;
+
+    S.participants=nextParticipants;
+    const scoreRows2=makeScoreRows(nextParticipants);
+    const {error:scoreError}=await sb.from("dpp_scores").upsert(scoreRows2,{onConflict:"event_id,score_mode,judge_circle,participant_order"});
+    if(scoreError) throw scoreError;
+
+    S.settings.isReady=true;
+    await saveSettings();
+    S.round2Preview=[];
+    localStorage.clear();
+    await loadSettings();
+    await refreshAll();
+    alert(`2차 예선 준비 완료 · ${nextParticipants.length}명 · 10명씩 새 조 편성 완료`);
+  }catch(err){
+    console.error(err);
+    alert(err.message || "2차 예선 전환 오류");
+  }
 }
 
 function scoreRows(){ return S.scores.filter(s=>s.score_mode===mode()); }
