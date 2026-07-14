@@ -190,3 +190,10 @@ button,input,select{font:inherit}button{border:0;cursor:pointer}.app{width:min(1
 .round2-preview{margin-top:12px;max-height:480px;overflow:auto}
 .round2-warning{margin-top:12px;font-weight:700}
 @media(max-width:640px){.round2-actions{grid-template-columns:1fr}}
+
+.round2-add-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;margin:12px 0}
+.round2-add-row select{min-height:44px;width:100%}
+button.mini{padding:6px 8px;min-width:34px;margin:2px}
+button.danger{border-color:rgba(255,80,80,.65)}
+button:disabled{opacity:.35;cursor:not-allowed}
+@media(max-width:640px){.round2-add-row{grid-template-columns:1fr}}

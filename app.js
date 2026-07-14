@@ -27,7 +27,8 @@ const S = {
   batchStart: 0,
   batchDrafts: {},
   reviewRows: [],
-  round2Preview: []
+  round2Preview: [],
+  round2CandidatePool: []
 };
 
 let sb = null;
@@ -687,11 +688,27 @@ async function confirmBatchScores(){
 }
 
 
+
 function currentRoundLabel(){
   return S.settings.prelimRound === 2 ? "2차 예선" : "1차 예선";
 }
+function allRankedRound1Participants(){
+  if(mode()==="circle"){
+    const rows=[];
+    circles().forEach(c=>{
+      judgeRank(c).forEach(r=>rows.push({...r,source_circle:c,source_rank:r.rank}));
+    });
+    return rows.sort((a,b)=>
+      Number(a.source_rank)-Number(b.source_rank) ||
+      circles().indexOf(a.source_circle)-circles().indexOf(b.source_circle) ||
+      compareParticipantOrder(a.participant_order,b.participant_order)
+    );
+  }
+  return totalRank()
+    .map(r=>({...r,source_circle:r.participant_circle,source_rank:r.rank}))
+    .sort((a,b)=>Number(a.source_rank)-Number(b.source_rank)||compareParticipantOrder(a.participant_order,b.participant_order));
+}
 function rankedQualifiersForRound2(){
-  const topN = Math.max(1, Number(S.settings.topCount || 10));
   if(mode()==="circle"){
     const rows=[];
     circles().forEach(c=>{
@@ -709,43 +726,92 @@ function rankedQualifiersForRound2(){
     .map(r=>({...r,source_circle:r.participant_circle,source_rank:r.rank}))
     .sort((a,b)=>Number(a.source_rank)-Number(b.source_rank)||compareParticipantOrder(a.participant_order,b.participant_order));
 }
-function buildRound2Preview(){
-  const qualifiers=rankedQualifiersForRound2();
-  S.round2Preview=qualifiers.map((r,i)=>{
-    const n=i+1;
+function renumberRound2Preview(){
+  S.round2Preview=S.round2Preview.map((r,i)=>{
     const groupIndex=Math.floor(i/10);
     const newCircle=String.fromCharCode(65+groupIndex);
-    return {
-      ...r,
-      new_order:`${newCircle}-${(i%10)+1}`,
-      new_circle:newCircle,
-      round2_number:n
-    };
+    return {...r,new_order:`${newCircle}-${(i%10)+1}`,new_circle:newCircle,round2_number:i+1};
   });
+}
+function buildRound2Preview(){
+  S.round2CandidatePool=allRankedRound1Participants();
+  S.round2Preview=rankedQualifiersForRound2().map(r=>({...r}));
+  renumberRound2Preview();
+  renderRound2Preview();
+}
+function removeRound2Candidate(index){
+  if(index<0 || index>=S.round2Preview.length) return;
+  S.round2Preview.splice(index,1);
+  renumberRound2Preview();
+  renderRound2Preview();
+}
+function addRound2Candidate(){
+  const select=$("round2AddSelect");
+  if(!select || !select.value){ alert("추가할 참가자를 선택해줘."); return; }
+  const candidate=S.round2CandidatePool.find(r=>String(r.participant_order)===String(select.value));
+  if(!candidate){ alert("참가자 정보를 찾지 못했어."); return; }
+  if(S.round2Preview.some(r=>String(r.participant_order)===String(candidate.participant_order))){
+    alert("이미 2차 명단에 포함된 참가자야.");
+    return;
+  }
+  S.round2Preview.push({...candidate});
+  S.round2Preview.sort((a,b)=>
+    Number(a.source_rank)-Number(b.source_rank) ||
+    circles().indexOf(a.source_circle)-circles().indexOf(b.source_circle) ||
+    compareParticipantOrder(a.participant_order,b.participant_order)
+  );
+  renumberRound2Preview();
+  renderRound2Preview();
+}
+function moveRound2Candidate(index,delta){
+  const next=index+delta;
+  if(index<0 || next<0 || index>=S.round2Preview.length || next>=S.round2Preview.length) return;
+  const temp=S.round2Preview[index];
+  S.round2Preview[index]=S.round2Preview[next];
+  S.round2Preview[next]=temp;
+  renumberRound2Preview();
   renderRound2Preview();
 }
 function renderRound2Preview(){
   const box=$("round2Preview");
   const info=$("round2Info");
+  const addSelect=$("round2AddSelect");
   if(!box) return;
-  if(info) info.textContent=`현재 ${currentRoundLabel()} · TOP 설정 ${S.settings.topCount} · ${mode()==="circle"?"서클별 진출":"전체 합계 진출"}`;
+  if(info) info.textContent=`현재 ${currentRoundLabel()} · 확정 예정 ${S.round2Preview.length}명 · ${mode()==="circle"?"서클별 진출":"전체 합계 진출"}`;
+  if(addSelect){
+    const included=new Set(S.round2Preview.map(r=>String(r.participant_order)));
+    const available=S.round2CandidatePool.filter(r=>!included.has(String(r.participant_order)));
+    addSelect.innerHTML='<option value="">진출자를 추가하려면 선택</option>'+
+      available.map(r=>`<option value="${esc(r.participant_order)}">#${esc(r.source_rank)} · ${esc(r.source_circle)}서클 · ${esc(r.battle_name||r.participant_name||r.participant_order)}</option>`).join("");
+  }
   if(!S.round2Preview.length){
     box.innerHTML='<div class="empty">PREVIEW 버튼을 누르면 2차 예선 진출자와 새 번호/조가 표시됩니다.</div>';
     return;
   }
-  box.innerHTML=`<div class="table-wrap"><table><thead><tr><th>2차 ORDER</th><th>2차 조</th><th>BATTLE</th><th>본명</th><th>1차 서클</th><th>1차 순위</th></tr></thead><tbody>${
-    S.round2Preview.map(r=>`<tr><td>${esc(r.new_order)}</td><td>${esc(r.new_circle)}조</td><td>${esc(r.battle_name||"-")}</td><td>${esc(r.participant_name||"-")}</td><td>${esc(r.source_circle)}</td><td>#${esc(r.source_rank)}</td></tr>`).join("")
+  box.innerHTML=`<div class="table-wrap"><table><thead><tr><th>순서</th><th>2차 ORDER</th><th>2차 조</th><th>BATTLE</th><th>본명</th><th>1차 서클</th><th>1차 순위</th><th>수정</th></tr></thead><tbody>${
+    S.round2Preview.map((r,i)=>`<tr>
+      <td><button class="mini ghost" onclick="moveRound2Candidate(${i},-1)" ${i===0?"disabled":""}>↑</button><button class="mini ghost" onclick="moveRound2Candidate(${i},1)" ${i===S.round2Preview.length-1?"disabled":""}>↓</button></td>
+      <td>${esc(r.new_order)}</td><td>${esc(r.new_circle)}조</td>
+      <td>${esc(r.battle_name||"-")}</td><td>${esc(r.participant_name||"-")}</td>
+      <td>${esc(r.source_circle)}</td><td>#${esc(r.source_rank)}</td>
+      <td><button class="mini danger" onclick="removeRound2Candidate(${i})">삭제</button></td>
+    </tr>`).join("")
   }</tbody></table></div>`;
 }
 async function startRound2(){
   try{
-    buildRound2Preview();
-    if(!S.round2Preview.length){ alert("2차 예선 진출자를 만들 수 없어. 1차 예선 점수를 먼저 확인해줘."); return; }
+    if(!S.round2CandidatePool.length) buildRound2Preview();
+    if(!S.round2Preview.length){ alert("확정할 2차 예선 진출자가 없어."); return; }
+    renumberRound2Preview();
+
     const incomplete = mode()==="circle"
       ? circles().some(c=>S.participants.filter(p=>p.participant_circle===c).some(p=>!S.scores.some(s=>s.judge_circle===c&&s.participant_order===p.participant_order&&s.score!==null&&s.score!==undefined)))
       : S.participants.some(p=>circles().some(c=>!S.scores.some(s=>s.judge_circle===c&&s.participant_order===p.participant_order&&s.score!==null&&s.score!==undefined)));
-    if(incomplete && !confirm("아직 모든 참가자의 채점이 끝나지 않았어. 현재 순위 기준으로 2차 진출자를 만들까?")) return;
-    if(!confirm(`2차 예선 진출자 ${S.round2Preview.length}명을 확정할까?\n\n1차 점수/명단은 ARCHIVE에 보관하고, 현재 채점 화면은 2차 예선용으로 교체됩니다.`)) return;
+    if(incomplete && !confirm("아직 모든 참가자의 채점이 끝나지 않았어. 현재 편집한 명단으로 확정할까?")) return;
+    if(!confirm(`현재 편집한 ${S.round2Preview.length}명을 2차 예선 명단으로 최종 확정할까?\n\n확정 전까지 져지 화면은 열리지 않고, 확정 후에만 2차 채점이 시작됩니다.`)) return;
+
+    S.settings.isReady=false;
+    await saveSettings();
 
     const archivePayload={
       round:1,
@@ -753,6 +819,7 @@ async function startRound2(){
       top_count:S.settings.topCount,
       participants:S.participants,
       scores:S.scores,
+      selected_round2:S.round2Preview,
       created_at:new Date().toISOString()
     };
     const {error:archiveError}=await sb.from("dpp_round_archives").insert({
@@ -760,7 +827,7 @@ async function startRound2(){
       round_no:1,
       payload:archivePayload
     });
-    if(archiveError) throw new Error("1차 기록 보관 오류: "+archiveError.message+" / ROUND2 SQL을 먼저 실행해줘.");
+    if(archiveError) throw new Error("1차 기록 보관 오류: "+archiveError.message);
 
     const nextParticipants=S.round2Preview.map(r=>({
       event_id:DPP_CONFIG.eventId,
@@ -771,7 +838,6 @@ async function startRound2(){
       updated_at:new Date().toISOString()
     }));
 
-    S.settings.isReady=false;
     S.settings.prelimRound=2;
     await saveSettings();
 
@@ -790,16 +856,16 @@ async function startRound2(){
     S.settings.isReady=true;
     await saveSettings();
     S.round2Preview=[];
+    S.round2CandidatePool=[];
     localStorage.clear();
     await loadSettings();
     await refreshAll();
-    alert(`2차 예선 준비 완료 · ${nextParticipants.length}명 · 10명씩 새 조 편성 완료`);
+    alert(`2차 예선 명단 확정 완료 · ${nextParticipants.length}명 · 져지 채점 화면이 열렸어.`);
   }catch(err){
     console.error(err);
     alert(err.message || "2차 예선 전환 오류");
   }
 }
-
 function scoreRows(){ return S.scores.filter(s=>s.score_mode===mode()); }
 function judgeRank(c){ return scoreRows().filter(s=>s.judge_circle===c&&s.score!==null&&s.score!==undefined).sort((a,b)=>Number(b.score)-Number(a.score)||compareParticipantOrder(a.participant_order,b.participant_order)).map((x,i)=>({...x,rank:i+1})); }
 function totalRank(){
