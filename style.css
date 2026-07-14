@@ -101,8 +101,6 @@ button,input,select{font:inherit}button{border:0;cursor:pointer}.app{width:min(1
   text-align:left;
 }
 .result-rank.gold{color:#ffd64b;text-shadow:0 0 12px rgba(255,199,46,.23)}
-.result-rank.silver{color:#dce5f4;text-shadow:0 0 10px rgba(222,231,245,.2)}
-.result-rank.bronze{color:#e88a32;text-shadow:0 0 10px rgba(232,138,50,.2)}
 .result-rank.dark{color:transparent;-webkit-text-stroke:1.2px #778296;text-shadow:none}
 .result-person{min-width:0;text-align:center}
 .result-person strong{
@@ -158,10 +156,11 @@ button,input,select{font:inherit}button{border:0;cursor:pointer}.app{width:min(1
 .result-board.exporting .result-person [contenteditable="true"]{box-shadow:none!important;background:transparent!important;caret-color:transparent}
 @media(max-width:650px){.result-image-actions{align-items:flex-start;flex-direction:column}.result-image-actions button{width:100%}}
 
-.result-rank.tie-rank{font-size:25px;letter-spacing:-.05em;white-space:nowrap}
-.result-board.compact .result-rank.tie-rank{font-size:19px}
-.result-board.ultra-compact .result-rank.tie-rank{font-size:15px}
 
+.result-logo[contenteditable="true"],.result-sub[contenteditable="true"]{outline:none;border-radius:6px;cursor:text}
+.result-board:not(.exporting) .result-logo[contenteditable="true"]:hover,.result-board:not(.exporting) .result-sub[contenteditable="true"]:hover{background:rgba(255,255,255,.06)}
+.result-logo[contenteditable="true"]:focus,.result-sub[contenteditable="true"]:focus{box-shadow:0 0 0 1px #ff53bb;background:rgba(255,83,187,.1)}
+.result-board.exporting .result-logo[contenteditable="true"],.result-board.exporting .result-sub[contenteditable="true"]{box-shadow:none!important;background:transparent!important;caret-color:transparent}
 .result-rank[contenteditable="true"]{outline:none;border-radius:6px;cursor:text}
 .result-board:not(.exporting) .result-rank[contenteditable="true"]:hover{background:rgba(255,255,255,.06)}
 .result-rank[contenteditable="true"]:focus{box-shadow:0 0 0 1px #ff53bb;background:rgba(255,83,187,.1)}

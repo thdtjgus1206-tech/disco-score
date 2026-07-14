@@ -633,16 +633,15 @@ function rememberResultEdit(el){
   S.resultEdits[key] ||= {};
   S.resultEdits[key][field] = el.textContent.trim();
 }
-function resultRowHtml(setKey, r, tieRanks){
+function resultRowHtml(setKey, r){
   const key = editKey(setKey,r);
   const battle = editedValue(setKey,r,"battle",r.battle_name || r.participant_name || "-");
   const real = editedValue(setKey,r,"real",r.participant_name || "-");
   const order = editedValue(setKey,r,"order",r.participant_order || "-");
   const circle = editedValue(setKey,r,"circle",r.participant_circle || "-");
-  const defaultRankLabel = tieRanks.has(r.rank) ? `공동 #${r.rank}` : `#${r.rank}`;
-  const rankLabel = editedValue(setKey,r,"rank",defaultRankLabel);
+  const rankLabel = editedValue(setKey,r,"rank",`#${r.rank}`);
   return `<div class="result-row">
-    <b class="result-rank ${r.rank===1?'gold':r.rank===2?'silver':r.rank===3?'bronze':'dark'} ${tieRanks.has(r.rank)?'tie-rank':''}" contenteditable="true" spellcheck="false" data-edit-key="${esc(key)}" data-field="rank" oninput="rememberResultEdit(this)">${esc(rankLabel)}</b>
+    <b class="result-rank ${r.rank===1?'gold':'dark'}" contenteditable="true" spellcheck="false" data-edit-key="${esc(key)}" data-field="rank" oninput="rememberResultEdit(this)">${esc(rankLabel)}</b>
     <span class="result-person">
       <strong contenteditable="true" spellcheck="false" data-edit-key="${esc(key)}" data-field="battle" oninput="rememberResultEdit(this)">${esc(battle)}</strong>
       <small>REAL NAME · <span contenteditable="true" spellcheck="false" data-edit-key="${esc(key)}" data-field="real" oninput="rememberResultEdit(this)">${esc(real)}</span> · ORDER <span contenteditable="true" spellcheck="false" data-edit-key="${esc(key)}" data-field="order" oninput="rememberResultEdit(this)">${esc(order)}</span> · GROUP <span contenteditable="true" spellcheck="false" data-edit-key="${esc(key)}" data-field="circle" oninput="rememberResultEdit(this)">${esc(circle)}</span></small>
@@ -650,17 +649,17 @@ function resultRowHtml(setKey, r, tieRanks){
   </div>`;
 }
 function resultBoardHtml(set){
-  const rankCounts = new Map();
-  set.rows.forEach(r=>rankCounts.set(r.rank,(rankCounts.get(r.rank)||0)+1));
-  const tieRanks = new Set([...rankCounts.entries()].filter(([,count])=>count>1).map(([rank])=>rank));
   const compact = set.rows.length > 8 ? " compact" : "";
   const ultra = set.rows.length > 12 ? " ultra-compact" : "";
+  const headerKey = `header|${set.key}`;
+  const logo = S.resultEdits[headerKey]?.logo ?? "D.I.S.C.O";
+  const subtitle = S.resultEdits[headerKey]?.subtitle ?? set.title;
   return `<div class="result-image-block">
     <div class="result-image-actions"><b>${esc(set.key === "TOTAL" ? "TOTAL RESULT" : `${set.key} JUDGE RESULT`)}</b><button class="primary small" onclick="saveResultImage('${esc(set.key)}')">SAVE ${esc(set.key)} IMAGE</button></div>
     <div id="resultBoard_${esc(set.key)}" class="result-board${compact}${ultra}">
-      <div class="result-logo">D.I.S.C.O</div>
-      <div class="result-sub">${esc(set.title)}</div>
-      <div class="result-list">${set.rows.length ? set.rows.map(r=>resultRowHtml(set.key,r,tieRanks)).join("") : `<div class="result-empty">결과 없음</div>`}</div>
+      <div class="result-logo" contenteditable="true" spellcheck="false" data-edit-key="${esc(headerKey)}" data-field="logo" oninput="rememberResultEdit(this)">${esc(logo)}</div>
+      <div class="result-sub" contenteditable="true" spellcheck="false" data-edit-key="${esc(headerKey)}" data-field="subtitle" oninput="rememberResultEdit(this)">${esc(subtitle)}</div>
+      <div class="result-list">${set.rows.length ? set.rows.map(r=>resultRowHtml(set.key,r)).join("") : `<div class="result-empty">결과 없음</div>`}</div>
     </div>
   </div>`;
 }

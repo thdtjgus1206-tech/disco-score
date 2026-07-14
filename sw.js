@@ -1,4 +1,4 @@
-const CACHE_NAME = "dpp-rank-edit-v2";
+const CACHE_NAME = "dpp-rank-edit-v3";
 
 self.addEventListener("install", event => {
   self.skipWaiting();
