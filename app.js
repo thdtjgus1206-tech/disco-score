@@ -355,6 +355,14 @@ function renderAdmin(){
   renderProgress();
   renderRanking();
   renderResults();
+  if(Number(S.settings.prelimRound||1)===2 && !S.round2Preview.length){
+    const payload=latestRound1ArchivePayload();
+    if(Array.isArray(payload?.selected_round2)){
+      S.round2CandidatePool=archivedRound2Candidates();
+      S.round2Preview=payload.selected_round2.map(r=>({...r}));
+      renumberRound2Preview();
+    }
+  }
   renderRound2Preview();
   renderRoundHistory();
 }
@@ -867,7 +875,39 @@ function renumberRound2Preview(){
     return {...r,new_order:`${newCircle}-${(i%10)+1}`,new_circle:newCircle,round2_number:i+1};
   });
 }
+
+function latestRound1ArchivePayload(){
+  const row=(S.roundArchives||[]).find(r=>Number(r.round_no)===1) || (S.roundArchives||[])[0];
+  return archivePayload(row);
+}
+function archivedRound2Candidates(){
+  const payload=latestRound1ArchivePayload();
+  if(!payload) return [];
+  const ranked=historyScoreRows(payload);
+  return ranked.map(r=>({
+    ...r,
+    source_circle:r.history_circle||r.participant_circle,
+    source_rank:r.rank
+  }));
+}
+
 function buildRound2Preview(){
+  // 이미 2차 예선이 시작된 상태라면 현재 2차 점수로 다시 계산하지 않고,
+  // 1차 ARCHIVE에 저장된 최종 확정 명단과 순서를 다시 불러온다.
+  if(Number(S.settings.prelimRound||1)===2){
+    const payload=latestRound1ArchivePayload();
+    S.round2CandidatePool=archivedRound2Candidates();
+    S.round2Preview=Array.isArray(payload?.selected_round2)
+      ? payload.selected_round2.map(r=>({...r}))
+      : [];
+    renumberRound2Preview();
+    renderRound2Preview();
+    if(!S.round2Preview.length){
+      alert("저장된 2차 확정 명단을 찾지 못했어. 기록 새로고침을 누른 뒤 다시 시도해줘.");
+    }
+    return;
+  }
+
   S.round2CandidatePool=allRankedRound1Participants();
   S.round2Preview=rankedQualifiersForRound2().map(r=>({...r}));
   renumberRound2Preview();
@@ -911,7 +951,18 @@ function renderRound2Preview(){
   const info=$("round2Info");
   const addSelect=$("round2AddSelect");
   if(!box) return;
-  if(info) info.textContent=`현재 ${currentRoundLabel()} · 확정 예정 ${S.round2Preview.length}명 · ${mode()==="circle"?"서클별 진출":"전체 합계 진출"}`;
+  if(info){
+    info.textContent=Number(S.settings.prelimRound||1)===2
+      ? `현재 2차 예선 진행 중 · 최종 확정 명단 ${S.round2Preview.length}명`
+      : `현재 1차 예선 · 확정 예정 ${S.round2Preview.length}명 · ${mode()==="circle"?"서클별 진출":"전체 합계 진출"}`;
+  }
+  const buildBtn=document.querySelector('[onclick="buildRound2Preview()"]');
+  const confirmBtn=document.querySelector('[onclick="startRound2()"]');
+  if(buildBtn) buildBtn.textContent=Number(S.settings.prelimRound||1)===2 ? "확정된 2차 명단 다시 보기" : "자동 진출 명단 만들기";
+  if(confirmBtn){
+    confirmBtn.textContent=Number(S.settings.prelimRound||1)===2 ? "2차 예선 진행 중" : "명단 최종 확정 · 2차 채점 열기";
+    confirmBtn.disabled=Number(S.settings.prelimRound||1)===2;
+  }
   if(addSelect){
     const included=new Set(S.round2Preview.map(r=>String(r.participant_order)));
     const available=S.round2CandidatePool.filter(r=>!included.has(String(r.participant_order)));
@@ -934,6 +985,11 @@ function renderRound2Preview(){
 }
 async function startRound2(){
   try{
+    if(Number(S.settings.prelimRound||1)===2){
+      buildRound2Preview();
+      alert("이미 2차 예선이 시작된 상태야. 저장된 최종 2차 명단과 ORDER를 다시 불러왔어.");
+      return;
+    }
     if(!S.round2CandidatePool.length) buildRound2Preview();
     if(!S.round2Preview.length){ alert("확정할 2차 예선 진출자가 없어."); return; }
     renumberRound2Preview();
