@@ -1,4 +1,4 @@
-const CACHE_NAME = "dpp-v7-2-pin-strict-20260714-2";
+const CACHE_NAME = "dpp-v7-2-natural-order-20260714-1";
 
 self.addEventListener("install", event => {
   self.skipWaiting();

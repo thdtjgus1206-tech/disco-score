@@ -29,6 +29,19 @@ let sb = null;
 function $(id){ return document.getElementById(id); }
 function esc(v){ return String(v ?? "").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function circles(){ return ["A","B","C"]; }
+function orderParts(value){
+  const text = String(value ?? "").trim().toUpperCase();
+  const match = text.match(/^([A-Z])-(?:(나)-)?(\d+)$/);
+  if(!match) return {circle:text, sub:"", number:Number.MAX_SAFE_INTEGER, raw:text};
+  return {circle:match[1], sub:match[2] || "", number:Number(match[3]), raw:text};
+}
+function compareParticipantOrder(a,b){
+  const x=orderParts(a), y=orderParts(b);
+  return x.circle.localeCompare(y.circle,"ko")
+    || x.sub.localeCompare(y.sub,"ko")
+    || x.number-y.number
+    || x.raw.localeCompare(y.raw,"ko",{numeric:true});
+}
 function mode(){ return S.settings.mode || "circle"; }
 function defaultPin(c){ return DEFAULTS.judges[c]?.pin || "1111"; }
 function judgeName(c){ return S.settings.judges[c]?.name || `${c} JUDGE`; }
@@ -146,12 +159,12 @@ async function saveSettings(){
 async function fetchParticipants(){
   const {data,error} = await sb.from("dpp_participants").select("*").eq("event_id",DPP_CONFIG.eventId).order("participant_order");
   if(error) throw error;
-  return data || [];
+  return (data || []).sort((a,b)=>compareParticipantOrder(a.participant_order,b.participant_order));
 }
 async function fetchScores(){
   const {data,error} = await sb.from("dpp_scores").select("*").eq("event_id",DPP_CONFIG.eventId).eq("score_mode",mode()).order("participant_order");
   if(error) throw error;
-  return data || [];
+  return (data || []).sort((a,b)=>compareParticipantOrder(a.participant_order,b.participant_order));
 }
 async function fetchLogs(){
   const {data,error} = await sb.from("dpp_logs").select("*").eq("event_id",DPP_CONFIG.eventId).eq("score_mode",mode()).order("created_at",{ascending:false}).limit(80);
@@ -410,7 +423,7 @@ function parseRows(rows){
     });
   });
   const seen=new Set();
-  return out.filter(p=>{ if(seen.has(p.participant_order)) return false; seen.add(p.participant_order); return true; });
+  return out.filter(p=>{ if(seen.has(p.participant_order)) return false; seen.add(p.participant_order); return true; }).sort((a,b)=>compareParticipantOrder(a.participant_order,b.participant_order));
 }
 async function handleFile(e){
   const file=e.target.files[0]; if(!file) return;
@@ -477,7 +490,7 @@ async function buildJudgeQueue(){
   S.queue = base.map(p=>{
     const found = S.scores.find(s=>s.score_mode===mode() && s.judge_circle===S.judge && s.participant_order===p.participant_order);
     return found || {event_id:DPP_CONFIG.eventId,score_mode:mode(),judge_circle:S.judge,judge_name:judgeName(S.judge),participant_order:p.participant_order,participant_circle:p.participant_circle,participant_name:p.participant_name,battle_name:p.battle_name,score:null,updated_at:new Date().toISOString()};
-  }).sort((a,b)=>String(a.participant_order).localeCompare(String(b.participant_order),"ko"));
+  }).sort((a,b)=>compareParticipantOrder(a.participant_order,b.participant_order));
   S.queue = mergePending(S.queue);
   if(S.index >= S.queue.length) S.index = 0;
   renderScore();
@@ -486,7 +499,7 @@ function mergePending(rows){
   const pending=getPending();
   const map=new Map(rows.map(r=>[`${r.score_mode}|${r.judge_circle}|${r.participant_order}`,r]));
   pending.forEach(p=>map.set(`${p.score_mode}|${p.judge_circle}|${p.participant_order}`, {...(map.get(`${p.score_mode}|${p.judge_circle}|${p.participant_order}`)||{}), ...p}));
-  return Array.from(map.values()).sort((a,b)=>String(a.participant_order).localeCompare(String(b.participant_order),"ko"));
+  return Array.from(map.values()).sort((a,b)=>compareParticipantOrder(a.participant_order,b.participant_order));
 }
 function renderScore(){
   if(S.role!=="judge") return;
@@ -543,14 +556,14 @@ function nextDancer(){ if(S.index<S.queue.length-1){S.index++;S.input="";renderS
 function prevDancer(){ if(S.index>0){S.index--;S.input="";renderScore();} }
 
 function scoreRows(){ return S.scores.filter(s=>s.score_mode===mode()); }
-function judgeRank(c){ return scoreRows().filter(s=>s.judge_circle===c&&s.score!==null&&s.score!==undefined).sort((a,b)=>Number(b.score)-Number(a.score)||String(a.participant_order).localeCompare(String(b.participant_order),"ko")).map((x,i)=>({...x,rank:i+1})); }
+function judgeRank(c){ return scoreRows().filter(s=>s.judge_circle===c&&s.score!==null&&s.score!==undefined).sort((a,b)=>Number(b.score)-Number(a.score)||compareParticipantOrder(a.participant_order,b.participant_order)).map((x,i)=>({...x,rank:i+1})); }
 function totalRank(){
   const map={};
   scoreRows().forEach(s=>{
     map[s.participant_order] ||= {participant_order:s.participant_order,participant_circle:s.participant_circle,participant_name:s.participant_name,battle_name:s.battle_name,total:0,count:0};
     if(s.score!==null&&s.score!==undefined){ map[s.participant_order].total += Number(s.score)||0; map[s.participant_order].count++; }
   });
-  return Object.values(map).filter(x=>x.count>0).map(x=>({...x,avg:x.total/x.count})).sort((a,b)=>b.total-a.total||String(a.participant_order).localeCompare(String(b.participant_order),"ko")).map((x,i)=>({...x,rank:i+1}));
+  return Object.values(map).filter(x=>x.count>0).map(x=>({...x,avg:x.total/x.count})).sort((a,b)=>b.total-a.total||compareParticipantOrder(a.participant_order,b.participant_order)).map((x,i)=>({...x,rank:i+1}));
 }
 function setRankView(v){ S.rankView=v; ["Judge","Total","Log"].forEach(k=>$("tab"+k)?.classList.toggle("active",v===k.toLowerCase())); renderRanking(); }
 function renderRanking(){
