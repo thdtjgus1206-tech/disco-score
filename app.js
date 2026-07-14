@@ -32,10 +32,6 @@ function circles(){ return ["A","B","C"]; }
 function mode(){ return S.settings.mode || "circle"; }
 function defaultPin(c){ return DEFAULTS.judges[c]?.pin || "1111"; }
 function judgeName(c){ return S.settings.judges[c]?.name || `${c} JUDGE`; }
-function allowedPins(c){
-  const saved = String(S.settings.judges?.[c]?.pin || "").trim();
-  return Array.from(new Set([saved, defaultPin(c)].filter(Boolean)));
-}
 function show(id){
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   $(id).classList.add("active");
@@ -205,36 +201,62 @@ function adminLogin(){
 }
 async function judgeLogin(){
   const c = $("judgeSelect").value || "A";
-  const pin = $("judgePin").value.trim();
+  const pinInput = $("judgePin");
+  const msg = $("judgeMsg");
+  const pin = String(pinInput?.value || "").trim();
   S.judge = c;
 
-  const hardPins = { A:"1111", B:"2222", C:"3333" };
-  const savedPin = String(S.settings.judges?.[c]?.pin || "").trim();
-  const accepted = new Set([hardPins[c], savedPin].filter(Boolean));
-
-  if(!accepted.has(pin)){
-    $("judgeMsg").textContent = `${c} JUDGE PIN이 틀렸어. 현재 선택: ${c}`;
+  if(!/^\d{4,8}$/.test(pin)){
+    msg.textContent = `${c} JUDGE PIN을 정확히 입력해줘.`;
     return;
   }
 
-  $("judgeMsg").textContent = "LOGIN OK";
-  $("judgePin").value = "";
-
-  S.role = "judge";
-  S.index = 0;
-  S.input = "";
-  S.queue = [];
-
-  // 로그인 성공은 DB 로딩과 분리: 먼저 채점 화면으로 이동
-  show("score");
-  renderScore();
-
   try{
+    // 로그인할 때마다 Supabase의 현재 설정만 직접 조회한다.
+    // DEFAULTS, localStorage, 이전 캐시 PIN은 로그인 판정에 절대 사용하지 않는다.
+    const {data, error} = await sb
+      .from("dpp_settings")
+      .select("judges,is_ready,updated_at")
+      .eq("event_id", DPP_CONFIG.eventId)
+      .single();
+
+    if(error) throw error;
+
+    const latestJudges = data?.judges;
+    const savedPin = String(latestJudges?.[c]?.pin ?? "").trim();
+
+    if(!savedPin || pin !== savedPin){
+      msg.textContent = `${c} JUDGE PIN이 틀렸어.`;
+      pinInput.value = "";
+      pinInput.focus();
+      return;
+    }
+
+    // 로그인 성공 뒤에만 최신 설정을 로컬 화면 상태에 반영한다.
+    circles().forEach(circle => {
+      if(latestJudges?.[circle]){
+        S.settings.judges[circle] = {
+          name: String(latestJudges[circle].name || `${circle} JUDGE`),
+          pin: String(latestJudges[circle].pin ?? "")
+        };
+      }
+    });
+    S.settings.isReady = data?.is_ready === true;
+
+    msg.textContent = "LOGIN OK";
+    pinInput.value = "";
+    S.role = "judge";
+    S.index = 0;
+    S.input = "";
+    S.queue = [];
+
+    show("score");
+    renderScore();
     await refreshAll();
     await buildJudgeQueue();
   }catch(err){
-    console.error("Judge data load error:", err);
-    $("debugLine").textContent = "로그인은 성공 / 데이터 로딩 오류: " + err.message;
+    console.error("Judge login error:", err);
+    msg.textContent = "PIN 확인 중 오류가 발생했어. 인터넷 연결을 확인해줘.";
   }
 }
 function logout(){
@@ -256,16 +278,43 @@ function renderAdmin(){
 }
 function setMode(m){ S.settings.mode = m; renderAdmin(); }
 function readAdminSettings(){
-  S.settings.judges.A = {name:$("nameA").value.trim()||"A JUDGE", pin:$("pinA").value.trim()||"1111"};
-  S.settings.judges.B = {name:$("nameB").value.trim()||"B JUDGE", pin:$("pinB").value.trim()||"2222"};
-  S.settings.judges.C = {name:$("nameC").value.trim()||"C JUDGE", pin:$("pinC").value.trim()||"3333"};
+  const next = {};
+  for(const c of circles()){
+    const name = $(`name${c}`).value.trim() || `${c} JUDGE`;
+    const pin = $(`pin${c}`).value.trim();
+    if(!/^\d{4,8}$/.test(pin)){
+      throw new Error(`${c} JUDGE PIN은 숫자 4~8자리로 입력해줘.`);
+    }
+    next[c] = {name, pin};
+  }
+  S.settings.judges = next;
 }
 async function saveAllSettings(){
-  readAdminSettings();
-  S.settings.isReady = false;
-  await saveSettings();
-  await refreshAll();
-  alert("저장 완료");
+  try{
+    readAdminSettings();
+    S.settings.isReady = false;
+    await saveSettings();
+
+    // 방금 저장된 PIN을 다시 읽어 실제 DB 반영 여부까지 검증한다.
+    const {data, error} = await sb
+      .from("dpp_settings")
+      .select("judges")
+      .eq("event_id", DPP_CONFIG.eventId)
+      .single();
+    if(error) throw error;
+
+    for(const c of circles()){
+      const expected = String(S.settings.judges[c].pin);
+      const actual = String(data?.judges?.[c]?.pin ?? "");
+      if(expected !== actual) throw new Error(`${c} JUDGE PIN 저장 확인에 실패했어.`);
+    }
+
+    await loadSettings();
+    await refreshAll();
+    alert("저장 완료 · 기존 PIN은 즉시 폐기됐어.");
+  }catch(err){
+    alert(err.message || "설정 저장 오류");
+  }
 }
 async function resetPins(){
   S.settings.judges.A.pin="1111"; S.settings.judges.B.pin="2222"; S.settings.judges.C.pin="3333";
@@ -298,22 +347,39 @@ async function clearAllData(){
 }
 
 async function prepareJudging(){
-  readAdminSettings();
-  S.settings.isReady = false;
-  await saveSettings();
-  S.participants = await fetchParticipants();
-  if(!S.participants.length){ alert("참가자 명단이 없어."); return; }
+  try{
+    readAdminSettings();
+    S.settings.isReady = false;
+    await saveSettings();
 
-  const rows = makeScoreRows(S.participants);
-  const {error} = await sb.from("dpp_scores").upsert(rows,{onConflict:"event_id,score_mode,judge_circle,participant_order"});
-  if(error){ alert("점수표 생성 오류: " + error.message + "\\n필수 SQL 실행 여부를 확인해줘."); return; }
+    const {data: saved, error: settingsError} = await sb
+      .from("dpp_settings")
+      .select("judges")
+      .eq("event_id", DPP_CONFIG.eventId)
+      .single();
+    if(settingsError) throw settingsError;
+    for(const c of circles()){
+      if(String(saved?.judges?.[c]?.pin ?? "") !== String(S.settings.judges[c].pin)){
+        throw new Error(`${c} JUDGE PIN 저장 확인에 실패했어.`);
+      }
+    }
 
-  S.settings.isReady = true;
-  await saveSettings();
-  await refreshAll();
-  alert(`심사 준비 완료 · ${mode()} · ${S.participants.length}명`);
+    S.participants = await fetchParticipants();
+    if(!S.participants.length){ alert("참가자 명단이 없어."); return; }
+
+    const rows = makeScoreRows(S.participants);
+    const {error} = await sb.from("dpp_scores").upsert(rows,{onConflict:"event_id,score_mode,judge_circle,participant_order"});
+    if(error) throw new Error("점수표 생성 오류: " + error.message + "\n필수 SQL 실행 여부를 확인해줘.");
+
+    S.settings.isReady = true;
+    await saveSettings();
+    await loadSettings();
+    await refreshAll();
+    alert(`심사 준비 완료 · ${mode()} · ${S.participants.length}명`);
+  }catch(err){
+    alert(err.message || "심사 준비 오류");
+  }
 }
-
 function clean(v){ return String(v??"").replace(/\uFEFF/g,"").trim(); }
 function isOrder(v){ return /^[A-Z]-(?:나-)?\d+$/i.test(clean(v).replace(/\s+/g,"")); }
 function fixOrder(v){ return clean(v).replace(/\s+/g,"").replace(/^([a-z])-/,(_,a)=>a.toUpperCase()+"-"); }
@@ -507,15 +573,55 @@ function renderProgress(){
     return `<div class="progress-item"><div><b>${c} JUDGE</b><em>${done}/${total}</em></div><div class="progress-line"><i style="width:${pct}%"></i></div></div>`;
   }).join("");
 }
-function renderResults(){
-  const rows=totalRank();
-  $("resultList").innerHTML=rows.length?rows.map(r=>`<div class="result-row"><b class="${r.rank===1?'gold':r.rank===2?'silver':r.rank===3?'bronze':'dark'}">#${r.rank}</b><span>${esc(r.battle_name||r.participant_name||"-")}<small>REAL NAME · ${esc(r.participant_name||"-")} · ORDER ${esc(r.participant_order)} · CIRCLE ${esc(r.participant_circle)}</small></span></div>`).join(""):`<div class="empty">결과 없음</div>`;
+function resultRowsWithCutoff(){
+  const all = totalRank();
+  const topN = Math.max(1, Number(S.settings.topCount || 6));
+  if(all.length <= topN) return all;
+  const cutoff = all[topN - 1]?.total;
+  return all.filter((row, index) => index < topN || row.total === cutoff);
 }
-function saveResultImage(){
+function renderResults(){
+  const rows = resultRowsWithCutoff();
+  const board = $("resultBoard");
+  const subtitle = $("resultSubtitle");
+  const topN = Math.max(1, Number(S.settings.topCount || 6));
+  const modeLabel = mode() === "all" ? "ALL GROUPS · TOTAL / AVG" : "CIRCLE RESULTS";
+
+  if(subtitle) subtitle.textContent = `${modeLabel} · TOP ${topN}`;
+  if(board){
+    board.classList.toggle("compact", rows.length > 8);
+    board.classList.toggle("ultra-compact", rows.length > 12);
+  }
+
+  $("resultList").innerHTML = rows.length ? rows.map(r => `
+    <div class="result-row">
+      <b class="result-rank ${r.rank===1?'gold':r.rank===2?'silver':r.rank===3?'bronze':'dark'}">#${r.rank}</b>
+      <span class="result-person">
+        <strong>${esc(r.battle_name || r.participant_name || "-")}</strong>
+        <small>REAL NAME · ${esc(r.participant_name || "-")} · ORDER ${esc(r.participant_order)} · GROUP ${esc(r.participant_circle)}</small>
+      </span>
+    </div>`).join("") : `<div class="result-empty">결과 없음</div>`;
+}
+async function saveResultImage(){
   renderResults();
-  html2canvas($("resultBoard"),{backgroundColor:"#07070a",scale:2,useCORS:true}).then(canvas=>{
-    const a=document.createElement("a"); a.href=canvas.toDataURL("image/png"); a.download="DPP_RESULTS.png"; a.click();
+  const board = $("resultBoard");
+  if(!board) return;
+  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  const canvas = await html2canvas(board,{
+    backgroundColor:"#081321",
+    scale:2,
+    useCORS:true,
+    width:540,
+    height:960,
+    windowWidth:540,
+    windowHeight:960,
+    scrollX:0,
+    scrollY:0
   });
+  const a=document.createElement("a");
+  a.href=canvas.toDataURL("image/png");
+  a.download=`DPP_INSTAGRAM_TOP_${Math.max(1, Number(S.settings.topCount || 6))}.png`;
+  a.click();
 }
 
 window.addEventListener("error", e => {

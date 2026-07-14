@@ -29,3 +29,120 @@ button,input,select{font:inherit}button{border:0;cursor:pointer}.app{width:min(1
 .offline-status.bad{border-color:rgba(255,209,102,.45);background:rgba(255,209,102,.12);color:#ffd166}
 .debug-line{color:#43d7ff;font-size:12px;font-weight:900;margin:4px 0 0}
 .score-bottom-actions{max-width:820px;width:100%;margin:8px auto 24px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+
+/* Instagram upload result image — classic D.I.S.C.O layout (1080 × 1920 export) */
+.result-board{
+  width:540px;
+  height:960px;
+  max-width:100%;
+  margin:18px auto 0;
+  padding:34px 28px 28px;
+  overflow:hidden;
+  position:relative;
+  border:2px solid rgba(255,69,180,.23);
+  border-radius:28px;
+  background:
+    linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px),
+    linear-gradient(rgba(255,255,255,.012) 1px,transparent 1px),
+    radial-gradient(circle at 50% 0%,rgba(35,73,117,.22),transparent 38%),
+    linear-gradient(180deg,#07111f 0%,#0a1725 48%,#08131f 100%);
+  background-size:32px 32px,32px 32px,auto,auto;
+  box-shadow:inset 0 0 55px rgba(0,0,0,.36),0 20px 55px rgba(0,0,0,.4);
+  color:#fff;
+}
+.result-board::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:linear-gradient(90deg,rgba(0,0,0,.18),transparent 12%,transparent 88%,rgba(0,0,0,.18));
+}
+.result-logo{
+  position:relative;
+  z-index:1;
+  margin:0;
+  text-align:center;
+  font-family:'Archivo Black',Impact,sans-serif;
+  font-size:55px;
+  line-height:1;
+  letter-spacing:.045em;
+  color:transparent;
+  -webkit-text-stroke:1.5px #ff53bb;
+  text-shadow:0 0 8px rgba(255,55,171,.45);
+}
+.result-sub{
+  position:relative;
+  z-index:1;
+  margin:17px 0 21px;
+  text-align:center;
+  color:#a8afc1;
+  font-size:12px;
+  font-weight:1000;
+  letter-spacing:.18em;
+}
+.result-list{position:relative;z-index:1;height:790px;display:flex;flex-direction:column}
+.result-row{
+  min-height:122px;
+  flex:1 1 0;
+  display:grid;
+  grid-template-columns:105px minmax(0,1fr);
+  align-items:center;
+  gap:13px;
+  border-bottom:1px solid rgba(181,195,214,.17);
+  padding:8px 7px;
+}
+.result-row:last-child{border-bottom:0}
+.result-rank{
+  font-family:'Archivo Black',Impact,sans-serif;
+  font-size:49px;
+  line-height:1;
+  letter-spacing:-.07em;
+  text-align:left;
+}
+.result-rank.gold{color:#ffd64b;text-shadow:0 0 12px rgba(255,199,46,.23)}
+.result-rank.silver{color:#dce5f4;text-shadow:0 0 10px rgba(222,231,245,.2)}
+.result-rank.bronze{color:#e88a32;text-shadow:0 0 10px rgba(232,138,50,.2)}
+.result-rank.dark{color:transparent;-webkit-text-stroke:1.2px #778296;text-shadow:none}
+.result-person{min-width:0;text-align:center}
+.result-person strong{
+  display:block;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-family:'Archivo Black',Impact,"Noto Sans KR",sans-serif;
+  font-size:25px;
+  line-height:1.08;
+  letter-spacing:-.025em;
+  color:#fff;
+  text-shadow:0 1px 2px rgba(0,0,0,.7);
+}
+.result-person small{
+  display:block;
+  margin-top:9px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#8993a8;
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.035em;
+}
+.result-empty{margin:auto;text-align:center;color:#8993a8;font-weight:900}
+.result-board.compact{padding-top:27px}
+.result-board.compact .result-logo{font-size:49px}
+.result-board.compact .result-sub{margin:13px 0 15px;font-size:10px}
+.result-board.compact .result-list{height:814px}
+.result-board.compact .result-row{min-height:0;padding:4px 7px}
+.result-board.compact .result-rank{font-size:34px}
+.result-board.compact .result-person strong{font-size:19px}
+.result-board.compact .result-person small{font-size:8px;margin-top:5px}
+.result-board.ultra-compact .result-logo{font-size:43px}
+.result-board.ultra-compact .result-sub{margin:10px 0 11px}
+.result-board.ultra-compact .result-list{height:827px}
+.result-board.ultra-compact .result-rank{font-size:28px}
+.result-board.ultra-compact .result-person strong{font-size:16px}
+.result-board.ultra-compact .result-person small{font-size:7px;margin-top:3px}
+@media(max-width:600px){
+  .result-board{transform-origin:top center}
+}
