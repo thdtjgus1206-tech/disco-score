@@ -176,3 +176,10 @@ button,input,select{font:inherit}button{border:0;cursor:pointer}.app{width:min(1
 .batch-review-row input{width:100%;font-size:26px;font-weight:900;text-align:center;min-height:56px;border-radius:12px}
 .batch-warning{text-align:center;color:#ffb8dc}
 @media(max-width:650px){.batch-review-row{grid-template-columns:68px minmax(0,1fr) 92px;gap:8px;padding:11px}.batch-review-row .review-person b{font-size:17px}.batch-review-row input{font-size:22px}}
+
+/* Image-only row deletion controls */
+.result-row{position:relative}
+.result-delete{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:28px;height:28px;border:1px solid rgba(255,83,187,.6);border-radius:50%;background:rgba(8,19,33,.92);color:#ff7bc9;font-size:20px;line-height:1;display:grid;place-items:center;cursor:pointer;z-index:3}
+.result-delete:hover{background:#ff53bb;color:#fff}
+.result-board.exporting .result-delete{display:none!important}
+.result-person{padding-right:34px}

@@ -753,6 +753,25 @@ function rememberResultEdit(el){
   S.resultEdits[key] ||= {};
   S.resultEdits[key][field] = el.textContent.trim();
 }
+function deleteResultRow(button){
+  const row = button.closest(".result-row");
+  const key = button.dataset.editKey;
+  if(!row || !key) return;
+  S.resultEdits[key] ||= {};
+  S.resultEdits[key].deleted = true;
+  row.remove();
+  updateResultBoardDensity(button.closest(".result-board"));
+}
+function updateResultBoardDensity(board){
+  if(!board) return;
+  const count = board.querySelectorAll(".result-row").length;
+  board.classList.toggle("compact", count > 8);
+  board.classList.toggle("ultra-compact", count > 12);
+  if(count === 0 && !board.querySelector(".result-empty")){
+    const list = board.querySelector(".result-list");
+    if(list) list.innerHTML = `<div class="result-empty">결과 없음</div>`;
+  }
+}
 function resultRowHtml(setKey, r){
   const key = editKey(setKey,r);
   const battle = editedValue(setKey,r,"battle",r.battle_name || r.participant_name || "-");
@@ -761,6 +780,7 @@ function resultRowHtml(setKey, r){
   const circle = editedValue(setKey,r,"circle",r.participant_circle || "-");
   const rankLabel = editedValue(setKey,r,"rank",`#${r.rank}`);
   return `<div class="result-row">
+    <button type="button" class="result-delete" data-edit-key="${esc(key)}" onclick="deleteResultRow(this)" aria-label="이 순위 삭제" title="이 순위 삭제">×</button>
     <b class="result-rank ${r.rank===1?'gold':'dark'}" contenteditable="true" spellcheck="false" data-edit-key="${esc(key)}" data-field="rank" oninput="rememberResultEdit(this)">${esc(rankLabel)}</b>
     <span class="result-person">
       <strong contenteditable="true" spellcheck="false" data-edit-key="${esc(key)}" data-field="battle" oninput="rememberResultEdit(this)">${esc(battle)}</strong>
@@ -769,8 +789,9 @@ function resultRowHtml(setKey, r){
   </div>`;
 }
 function resultBoardHtml(set){
-  const compact = set.rows.length > 8 ? " compact" : "";
-  const ultra = set.rows.length > 12 ? " ultra-compact" : "";
+  const visibleRows = set.rows.filter(r => !S.resultEdits[editKey(set.key,r)]?.deleted);
+  const compact = visibleRows.length > 8 ? " compact" : "";
+  const ultra = visibleRows.length > 12 ? " ultra-compact" : "";
   const headerKey = `header|${set.key}`;
   const logo = S.resultEdits[headerKey]?.logo ?? "D.I.S.C.O";
   const subtitle = S.resultEdits[headerKey]?.subtitle ?? set.title;
@@ -779,7 +800,7 @@ function resultBoardHtml(set){
     <div id="resultBoard_${esc(set.key)}" class="result-board${compact}${ultra}">
       <div class="result-logo" contenteditable="true" spellcheck="false" data-edit-key="${esc(headerKey)}" data-field="logo" oninput="rememberResultEdit(this)">${esc(logo)}</div>
       <div class="result-sub" contenteditable="true" spellcheck="false" data-edit-key="${esc(headerKey)}" data-field="subtitle" oninput="rememberResultEdit(this)">${esc(subtitle)}</div>
-      <div class="result-list">${set.rows.length ? set.rows.map(r=>resultRowHtml(set.key,r)).join("") : `<div class="result-empty">결과 없음</div>`}</div>
+      <div class="result-list">${visibleRows.length ? visibleRows.map(r=>resultRowHtml(set.key,r)).join("") : `<div class="result-empty">결과 없음</div>`}</div>
     </div>
   </div>`;
 }
