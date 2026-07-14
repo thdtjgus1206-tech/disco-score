@@ -639,9 +639,10 @@ function resultRowHtml(setKey, r, tieRanks){
   const real = editedValue(setKey,r,"real",r.participant_name || "-");
   const order = editedValue(setKey,r,"order",r.participant_order || "-");
   const circle = editedValue(setKey,r,"circle",r.participant_circle || "-");
-  const rankLabel = tieRanks.has(r.rank) ? `공동 #${r.rank}` : `#${r.rank}`;
+  const defaultRankLabel = tieRanks.has(r.rank) ? `공동 #${r.rank}` : `#${r.rank}`;
+  const rankLabel = editedValue(setKey,r,"rank",defaultRankLabel);
   return `<div class="result-row">
-    <b class="result-rank ${r.rank===1?'gold':r.rank===2?'silver':r.rank===3?'bronze':'dark'} ${tieRanks.has(r.rank)?'tie-rank':''}">${rankLabel}</b>
+    <b class="result-rank ${r.rank===1?'gold':r.rank===2?'silver':r.rank===3?'bronze':'dark'} ${tieRanks.has(r.rank)?'tie-rank':''}" contenteditable="true" spellcheck="false" data-edit-key="${esc(key)}" data-field="rank" oninput="rememberResultEdit(this)">${esc(rankLabel)}</b>
     <span class="result-person">
       <strong contenteditable="true" spellcheck="false" data-edit-key="${esc(key)}" data-field="battle" oninput="rememberResultEdit(this)">${esc(battle)}</strong>
       <small>REAL NAME · <span contenteditable="true" spellcheck="false" data-edit-key="${esc(key)}" data-field="real" oninput="rememberResultEdit(this)">${esc(real)}</span> · ORDER <span contenteditable="true" spellcheck="false" data-edit-key="${esc(key)}" data-field="order" oninput="rememberResultEdit(this)">${esc(order)}</span> · GROUP <span contenteditable="true" spellcheck="false" data-edit-key="${esc(key)}" data-field="circle" oninput="rememberResultEdit(this)">${esc(circle)}</span></small>

@@ -161,3 +161,8 @@ button,input,select{font:inherit}button{border:0;cursor:pointer}.app{width:min(1
 .result-rank.tie-rank{font-size:25px;letter-spacing:-.05em;white-space:nowrap}
 .result-board.compact .result-rank.tie-rank{font-size:19px}
 .result-board.ultra-compact .result-rank.tie-rank{font-size:15px}
+
+.result-rank[contenteditable="true"]{outline:none;border-radius:6px;cursor:text}
+.result-board:not(.exporting) .result-rank[contenteditable="true"]:hover{background:rgba(255,255,255,.06)}
+.result-rank[contenteditable="true"]:focus{box-shadow:0 0 0 1px #ff53bb;background:rgba(255,83,187,.1)}
+.result-board.exporting .result-rank[contenteditable="true"]{box-shadow:none!important;background:transparent!important;caret-color:transparent}
