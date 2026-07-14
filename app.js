@@ -21,7 +21,8 @@ const S = {
   queue: [],
   index: 0,
   input: "",
-  rankView: "judge"
+  rankView: "judge",
+  resultEdits: {}
 };
 
 let sb = null;
@@ -283,14 +284,18 @@ function renderAdmin(){
   $("nameA").value = judgeName("A"); $("pinA").value = S.settings.judges.A.pin;
   $("nameB").value = judgeName("B"); $("pinB").value = S.settings.judges.B.pin;
   $("nameC").value = judgeName("C"); $("pinC").value = S.settings.judges.C.pin;
+  if($("topCount")) $("topCount").value = S.settings.topCount;
   $("adminInfo").textContent = `${S.settings.isReady ? "심사 준비 완료" : "심사 준비 전"} · MODE ${mode().toUpperCase()} · 참가자 ${S.participants.length}명 · 점수row ${S.scores.length}개`;
   renderParticipants();
   renderProgress();
   renderRanking();
   renderResults();
 }
-function setMode(m){ S.settings.mode = m; renderAdmin(); }
+function setMode(m){ S.settings.mode = m; S.resultEdits = {}; renderAdmin(); }
 function readAdminSettings(){
+  const topCount = Number($("topCount")?.value || S.settings.topCount);
+  if(!Number.isInteger(topCount) || topCount < 1 || topCount > 100) throw new Error("TOP 표기 인원은 1~100 사이 숫자로 입력해줘.");
+  S.settings.topCount = topCount;
   const next = {};
   for(const c of circles()){
     const name = $(`name${c}`).value.trim() || `${c} JUDGE`;
@@ -586,55 +591,99 @@ function renderProgress(){
     return `<div class="progress-item"><div><b>${c} JUDGE</b><em>${done}/${total}</em></div><div class="progress-line"><i style="width:${pct}%"></i></div></div>`;
   }).join("");
 }
-function resultRowsWithCutoff(){
-  const all = totalRank();
+function rankWithTies(rows, scoreKey){
+  let lastScore = null;
+  let lastRank = 0;
+  return rows.map((row, index) => {
+    const score = Number(row[scoreKey]);
+    const rank = index === 0 || score !== lastScore ? index + 1 : lastRank;
+    lastScore = score;
+    lastRank = rank;
+    return {...row, rank};
+  });
+}
+function cutoffRows(rows, scoreKey){
+  const ranked = rankWithTies(rows, scoreKey);
   const topN = Math.max(1, Number(S.settings.topCount || 6));
-  if(all.length <= topN) return all;
-  const cutoff = all[topN - 1]?.total;
-  return all.filter((row, index) => index < topN || row.total === cutoff);
+  if(ranked.length <= topN) return ranked;
+  const cutoffScore = Number(ranked[topN - 1]?.[scoreKey]);
+  return ranked.filter((row, index) => index < topN || Number(row[scoreKey]) === cutoffScore);
+}
+function resultSets(){
+  if(mode() === "circle"){
+    return circles().map(c => ({
+      key:c,
+      title:`${c} JUDGE · ${judgeName(c)} · TOP ${Math.max(1, Number(S.settings.topCount || 6))}`,
+      rows:cutoffRows(judgeRank(c), "score")
+    }));
+  }
+  return [{
+    key:"TOTAL",
+    title:`ALL GROUPS · TOTAL / AVG · TOP ${Math.max(1, Number(S.settings.topCount || 6))}`,
+    rows:cutoffRows(totalRank(), "total")
+  }];
+}
+function editKey(setKey, row){ return `${mode()}|${setKey}|${row.participant_order}`; }
+function editedValue(setKey, row, field, fallback){
+  return S.resultEdits[editKey(setKey,row)]?.[field] ?? fallback;
+}
+function rememberResultEdit(el){
+  const key = el.dataset.editKey;
+  const field = el.dataset.field;
+  S.resultEdits[key] ||= {};
+  S.resultEdits[key][field] = el.textContent.trim();
+}
+function resultRowHtml(setKey, r, tieRanks){
+  const key = editKey(setKey,r);
+  const battle = editedValue(setKey,r,"battle",r.battle_name || r.participant_name || "-");
+  const real = editedValue(setKey,r,"real",r.participant_name || "-");
+  const order = editedValue(setKey,r,"order",r.participant_order || "-");
+  const circle = editedValue(setKey,r,"circle",r.participant_circle || "-");
+  const rankLabel = tieRanks.has(r.rank) ? `공동 #${r.rank}` : `#${r.rank}`;
+  return `<div class="result-row">
+    <b class="result-rank ${r.rank===1?'gold':r.rank===2?'silver':r.rank===3?'bronze':'dark'} ${tieRanks.has(r.rank)?'tie-rank':''}">${rankLabel}</b>
+    <span class="result-person">
+      <strong contenteditable="true" spellcheck="false" data-edit-key="${esc(key)}" data-field="battle" oninput="rememberResultEdit(this)">${esc(battle)}</strong>
+      <small>REAL NAME · <span contenteditable="true" spellcheck="false" data-edit-key="${esc(key)}" data-field="real" oninput="rememberResultEdit(this)">${esc(real)}</span> · ORDER <span contenteditable="true" spellcheck="false" data-edit-key="${esc(key)}" data-field="order" oninput="rememberResultEdit(this)">${esc(order)}</span> · GROUP <span contenteditable="true" spellcheck="false" data-edit-key="${esc(key)}" data-field="circle" oninput="rememberResultEdit(this)">${esc(circle)}</span></small>
+    </span>
+  </div>`;
+}
+function resultBoardHtml(set){
+  const rankCounts = new Map();
+  set.rows.forEach(r=>rankCounts.set(r.rank,(rankCounts.get(r.rank)||0)+1));
+  const tieRanks = new Set([...rankCounts.entries()].filter(([,count])=>count>1).map(([rank])=>rank));
+  const compact = set.rows.length > 8 ? " compact" : "";
+  const ultra = set.rows.length > 12 ? " ultra-compact" : "";
+  return `<div class="result-image-block">
+    <div class="result-image-actions"><b>${esc(set.key === "TOTAL" ? "TOTAL RESULT" : `${set.key} JUDGE RESULT`)}</b><button class="primary small" onclick="saveResultImage('${esc(set.key)}')">SAVE ${esc(set.key)} IMAGE</button></div>
+    <div id="resultBoard_${esc(set.key)}" class="result-board${compact}${ultra}">
+      <div class="result-logo">D.I.S.C.O</div>
+      <div class="result-sub">${esc(set.title)}</div>
+      <div class="result-list">${set.rows.length ? set.rows.map(r=>resultRowHtml(set.key,r,tieRanks)).join("") : `<div class="result-empty">결과 없음</div>`}</div>
+    </div>
+  </div>`;
 }
 function renderResults(){
-  const rows = resultRowsWithCutoff();
-  const board = $("resultBoard");
-  const subtitle = $("resultSubtitle");
-  const topN = Math.max(1, Number(S.settings.topCount || 6));
-  const modeLabel = mode() === "all" ? "ALL GROUPS · TOTAL / AVG" : "CIRCLE RESULTS";
-
-  if(subtitle) subtitle.textContent = `${modeLabel} · TOP ${topN}`;
-  if(board){
-    board.classList.toggle("compact", rows.length > 8);
-    board.classList.toggle("ultra-compact", rows.length > 12);
-  }
-
-  $("resultList").innerHTML = rows.length ? rows.map(r => `
-    <div class="result-row">
-      <b class="result-rank ${r.rank===1?'gold':r.rank===2?'silver':r.rank===3?'bronze':'dark'}">#${r.rank}</b>
-      <span class="result-person">
-        <strong>${esc(r.battle_name || r.participant_name || "-")}</strong>
-        <small>REAL NAME · ${esc(r.participant_name || "-")} · ORDER ${esc(r.participant_order)} · GROUP ${esc(r.participant_circle)}</small>
-      </span>
-    </div>`).join("") : `<div class="result-empty">결과 없음</div>`;
+  const host = $("resultBoards");
+  if(!host) return;
+  host.innerHTML = resultSets().map(resultBoardHtml).join("");
 }
-async function saveResultImage(){
-  renderResults();
-  const board = $("resultBoard");
+async function saveResultImage(setKey){
+  const board = $(`resultBoard_${setKey}`);
   if(!board) return;
+  board.classList.add("exporting");
   await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-  const canvas = await html2canvas(board,{
-    backgroundColor:"#081321",
-    scale:2,
-    useCORS:true,
-    width:540,
-    height:960,
-    windowWidth:540,
-    windowHeight:960,
-    scrollX:0,
-    scrollY:0
-  });
-  const a=document.createElement("a");
-  a.href=canvas.toDataURL("image/png");
-  a.download=`DPP_INSTAGRAM_TOP_${Math.max(1, Number(S.settings.topCount || 6))}.png`;
-  a.click();
+  try{
+    const canvas = await html2canvas(board,{
+      backgroundColor:"#081321", scale:2, useCORS:true,
+      width:540, height:960, windowWidth:540, windowHeight:960, scrollX:0, scrollY:0
+    });
+    const a=document.createElement("a");
+    a.href=canvas.toDataURL("image/png");
+    const topN=Math.max(1,Number(S.settings.topCount||6));
+    a.download=`DPP_${mode()==="circle"?setKey:"TOTAL"}_TOP_${topN}.png`;
+    a.click();
+  } finally { board.classList.remove("exporting"); }
 }
 
 window.addEventListener("error", e => {

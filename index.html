@@ -70,6 +70,13 @@
     </div>
 
     <div class="panel">
+      <h3>RESULT RANKING SETTINGS</h3>
+      <label>TOP 몇 위까지 이미지에 표시할지</label>
+      <input id="topCount" type="number" min="1" max="100" inputmode="numeric" value="16">
+      <p class="sub">예: TOP 8 설정 시 8위 동점자는 모두 공동 8위로 함께 표시됩니다.</p>
+    </div>
+
+    <div class="panel">
       <div class="top"><h3>JUDGE NAME / PIN</h3><button class="ghost small" onclick="resetPins()">RESET PIN</button></div>
       <div class="judge-grid">
         <div class="judge-card"><h4>A JUDGE</h4><label>NAME</label><input id="nameA"><label>PIN</label><input id="pinA" inputmode="numeric"></div>
@@ -106,12 +113,8 @@
     </div>
 
     <div class="panel">
-      <div class="top"><h3>RESULT IMAGE</h3><button class="primary small" onclick="saveResultImage()">SAVE IMAGE</button></div>
-      <div id="resultBoard" class="result-board">
-        <div class="result-logo">D.I.S.C.O</div>
-        <div id="resultSubtitle" class="result-sub">ALL GROUPS · TOTAL / AVG · TOP 6</div>
-        <div id="resultList" class="result-list"></div>
-      </div>
+      <div class="top"><div><h3>RESULT IMAGE</h3><p class="sub">이름·본명·ORDER·GROUP 글자를 직접 눌러 수정한 뒤 저장할 수 있어.</p></div></div>
+      <div id="resultBoards" class="result-boards"></div>
     </div>
 
     <div class="panel">

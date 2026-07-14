@@ -146,3 +146,18 @@ button,input,select{font:inherit}button{border:0;cursor:pointer}.app{width:min(1
 @media(max-width:600px){
   .result-board{transform-origin:top center}
 }
+
+
+/* RESULT IMAGE V8: per-judge boards + editable export */
+.result-boards{display:flex;flex-direction:column;gap:28px}
+.result-image-block{display:flex;flex-direction:column;gap:12px}
+.result-image-actions{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.result-person [contenteditable="true"]{outline:none;border-radius:4px}
+.result-person [contenteditable="true"]:focus{box-shadow:0 0 0 1px #ff53bb;background:rgba(255,83,187,.1)}
+.result-board:not(.exporting) .result-person [contenteditable="true"]:hover{background:rgba(255,255,255,.06)}
+.result-board.exporting .result-person [contenteditable="true"]{box-shadow:none!important;background:transparent!important;caret-color:transparent}
+@media(max-width:650px){.result-image-actions{align-items:flex-start;flex-direction:column}.result-image-actions button{width:100%}}
+
+.result-rank.tie-rank{font-size:25px;letter-spacing:-.05em;white-space:nowrap}
+.result-board.compact .result-rank.tie-rank{font-size:19px}
+.result-board.ultra-compact .result-rank.tie-rank{font-size:15px}
