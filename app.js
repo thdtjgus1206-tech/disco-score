@@ -716,17 +716,25 @@ function historyScoreRows(payload){
   const participants=Array.isArray(payload?.participants)?payload.participants:[];
   const scores=Array.isArray(payload?.scores)?payload.scores:[];
   const scoringMode=payload?.scoring_mode||"circle";
-  const judgeList=Array.isArray(S.settings?.judges)?S.settings.judges:[];
-  const circlesList=judgeList.map(j=>j.circle).filter(Boolean);
+
+  // 현재 설정값이 아니라 저장 당시 참가자·점수에서 실제 서클을 찾아 기록을 복원한다.
+  const circleSet=new Set();
+  participants.forEach(p=>{ if(p?.participant_circle) circleSet.add(String(p.participant_circle)); });
+  scores.forEach(s=>{ if(s?.judge_circle) circleSet.add(String(s.judge_circle)); });
+  const circlesList=[...circleSet].sort((a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true}));
+
   if(scoringMode==="circle"){
     const rows=[];
     circlesList.forEach(c=>{
-      const ps=participants.filter(p=>p.participant_circle===c);
-      const sr=scores.filter(s=>s.judge_circle===c);
+      const ps=participants.filter(p=>String(p.participant_circle)===String(c));
+      const sr=scores.filter(s=>String(s.judge_circle)===String(c));
       const ranked=ps.map(p=>{
         const found=sr.find(s=>String(s.participant_order)===String(p.participant_order));
         return {...p,score:found?.score??null};
-      }).sort((a,b)=>(Number(b.score??-Infinity)-Number(a.score??-Infinity))||compareParticipantOrder(a.participant_order,b.participant_order));
+      })
+      .filter(r=>r.score!==null && r.score!==undefined && r.score!=="")
+      .sort((a,b)=>Number(b.score)-Number(a.score)||compareParticipantOrder(a.participant_order,b.participant_order));
+
       let prevScore=null, prevRank=0;
       ranked.forEach((r,i)=>{
         if(i===0 || Number(r.score)!==Number(prevScore)) prevRank=i+1;
@@ -737,11 +745,18 @@ function historyScoreRows(payload){
     });
     return rows;
   }
+
   const rows=participants.map(p=>{
-    const ps=scores.filter(s=>String(s.participant_order)===String(p.participant_order));
+    const ps=scores.filter(s=>
+      String(s.participant_order)===String(p.participant_order) &&
+      s.score!==null && s.score!==undefined && s.score!==""
+    );
     const total=ps.reduce((sum,s)=>sum+Number(s.score||0),0);
-    return {...p,total};
-  }).sort((a,b)=>Number(b.total)-Number(a.total)||compareParticipantOrder(a.participant_order,b.participant_order));
+    return {...p,total,count:ps.length};
+  })
+  .filter(r=>r.count>0)
+  .sort((a,b)=>Number(b.total)-Number(a.total)||compareParticipantOrder(a.participant_order,b.participant_order));
+
   let prev=null, rank=0;
   rows.forEach((r,i)=>{
     if(i===0 || Number(r.total)!==Number(prev)) rank=i+1;
@@ -791,7 +806,9 @@ function renderRoundHistory(){
       <button class="ghost history-tab" onclick="showHistoryTab('selected',this)">2차 진출 명단·순서</button>
     </div>
     <div id="historyRankingPane" class="history-pane">
-      <div class="table-wrap"><table><thead><tr><th>순위</th><th>1차 ORDER</th><th>BATTLE</th><th>본명</th><th>1차 서클</th><th>${scoreMode==="circle"?"점수":"합계"}</th></tr></thead><tbody>${rankingRows}</tbody></table></div>
+      ${rankings.length
+        ? `<div class="table-wrap"><table><thead><tr><th>순위</th><th>1차 ORDER</th><th>BATTLE</th><th>본명</th><th>1차 서클</th><th>${scoreMode==="circle"?"점수":"합계"}</th></tr></thead><tbody>${rankingRows}</tbody></table></div>`
+        : '<div class="empty">저장된 1차 점수 기록이 없습니다.</div>'}
     </div>
     <div id="historySelectedPane" class="history-pane hidden">
       ${selected.length?`<div class="table-wrap"><table><thead><tr><th>순번</th><th>2차 ORDER</th><th>2차 조</th><th>BATTLE</th><th>본명</th><th>1차 서클</th><th>1차 순위</th></tr></thead><tbody>${selectedRows}</tbody></table></div>`:'<div class="empty">저장된 2차 확정 명단이 없습니다.</div>'}
