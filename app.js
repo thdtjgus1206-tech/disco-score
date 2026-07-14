@@ -28,7 +28,8 @@ const S = {
   batchDrafts: {},
   reviewRows: [],
   round2Preview: [],
-  round2CandidatePool: []
+  round2CandidatePool: [],
+  roundArchives: []
 };
 
 let sb = null;
@@ -233,6 +234,7 @@ async function refreshAll(){
   S.logs = await fetchLogs();
   if(S.role === "admin") renderAdmin();
   if(S.role === "judge") await buildJudgeQueue();
+  await loadRoundArchives();
 }
 async function refreshScoresOnly(){
   S.scores = await fetchScores();
@@ -354,6 +356,7 @@ function renderAdmin(){
   renderRanking();
   renderResults();
   renderRound2Preview();
+  renderRoundHistory();
 }
 function setMode(m){ S.settings.mode = m; S.resultEdits = {}; renderAdmin(); }
 function readAdminSettings(){
@@ -689,6 +692,120 @@ async function confirmBatchScores(){
 
 
 
+
+async function loadRoundArchives(){
+  try{
+    const {data,error}=await sb
+      .from("dpp_round_archives")
+      .select("*")
+      .eq("event_id",DPP_CONFIG.eventId)
+      .order("created_at",{ascending:false});
+    if(error) throw error;
+    S.roundArchives=data||[];
+  }catch(err){
+    console.warn("Round archive load failed",err);
+    S.roundArchives=[];
+  }
+  renderRoundHistory();
+}
+function archivePayload(row){
+  if(!row) return null;
+  return row.payload && typeof row.payload==="object" ? row.payload : null;
+}
+function historyScoreRows(payload){
+  const participants=Array.isArray(payload?.participants)?payload.participants:[];
+  const scores=Array.isArray(payload?.scores)?payload.scores:[];
+  const scoringMode=payload?.scoring_mode||"circle";
+  const judgeList=Array.isArray(S.settings?.judges)?S.settings.judges:[];
+  const circlesList=judgeList.map(j=>j.circle).filter(Boolean);
+  if(scoringMode==="circle"){
+    const rows=[];
+    circlesList.forEach(c=>{
+      const ps=participants.filter(p=>p.participant_circle===c);
+      const sr=scores.filter(s=>s.judge_circle===c);
+      const ranked=ps.map(p=>{
+        const found=sr.find(s=>String(s.participant_order)===String(p.participant_order));
+        return {...p,score:found?.score??null};
+      }).sort((a,b)=>(Number(b.score??-Infinity)-Number(a.score??-Infinity))||compareParticipantOrder(a.participant_order,b.participant_order));
+      let prevScore=null, prevRank=0;
+      ranked.forEach((r,i)=>{
+        if(i===0 || Number(r.score)!==Number(prevScore)) prevRank=i+1;
+        r.rank=prevRank;
+        prevScore=r.score;
+        rows.push({...r,history_circle:c});
+      });
+    });
+    return rows;
+  }
+  const rows=participants.map(p=>{
+    const ps=scores.filter(s=>String(s.participant_order)===String(p.participant_order));
+    const total=ps.reduce((sum,s)=>sum+Number(s.score||0),0);
+    return {...p,total};
+  }).sort((a,b)=>Number(b.total)-Number(a.total)||compareParticipantOrder(a.participant_order,b.participant_order));
+  let prev=null, rank=0;
+  rows.forEach((r,i)=>{
+    if(i===0 || Number(r.total)!==Number(prev)) rank=i+1;
+    r.rank=rank;
+    prev=r.total;
+  });
+  return rows;
+}
+function renderRoundHistory(){
+  const box=$("roundHistory");
+  const summary=$("roundHistorySummary");
+  if(!box) return;
+  const archive=S.roundArchives?.[0];
+  const payload=archivePayload(archive);
+  if(!payload){
+    if(summary) summary.textContent="아직 저장된 1차 예선 기록이 없습니다.";
+    box.innerHTML='<div class="empty">2차 예선 명단을 최종 확정하면 1차 점수·순위와 2차 진출 명단·순서가 이곳에 계속 표시됩니다.</div>';
+    return;
+  }
+  const rankings=historyScoreRows(payload);
+  const selected=Array.isArray(payload.selected_round2)?payload.selected_round2:[];
+  if(summary){
+    const savedAt=archive.created_at?new Date(archive.created_at).toLocaleString():"-";
+    summary.textContent=`1차 참가자 ${payload.participants?.length||0}명 · 2차 확정 ${selected.length}명 · 저장 ${savedAt}`;
+  }
+  const scoreMode=payload.scoring_mode||"circle";
+  const rankingRows=rankings.map(r=>`<tr>
+    <td>#${esc(r.rank)}</td>
+    <td>${esc(r.participant_order||"-")}</td>
+    <td>${esc(r.battle_name||"-")}</td>
+    <td>${esc(r.participant_name||"-")}</td>
+    <td>${esc(r.history_circle||r.participant_circle||"-")}</td>
+    <td>${scoreMode==="circle"?esc(r.score??"-"):esc(r.total??"-")}</td>
+  </tr>`).join("");
+  const selectedRows=selected.map((r,i)=>`<tr>
+    <td>${i+1}</td>
+    <td>${esc(r.new_order||"-")}</td>
+    <td>${esc(r.new_circle||"-")}조</td>
+    <td>${esc(r.battle_name||"-")}</td>
+    <td>${esc(r.participant_name||"-")}</td>
+    <td>${esc(r.source_circle||"-")}</td>
+    <td>#${esc(r.source_rank||"-")}</td>
+  </tr>`).join("");
+  box.innerHTML=`
+    <div class="history-tabs">
+      <button class="ghost history-tab active" onclick="showHistoryTab('ranking',this)">1차 점수·순위</button>
+      <button class="ghost history-tab" onclick="showHistoryTab('selected',this)">2차 진출 명단·순서</button>
+    </div>
+    <div id="historyRankingPane" class="history-pane">
+      <div class="table-wrap"><table><thead><tr><th>순위</th><th>1차 ORDER</th><th>BATTLE</th><th>본명</th><th>1차 서클</th><th>${scoreMode==="circle"?"점수":"합계"}</th></tr></thead><tbody>${rankingRows}</tbody></table></div>
+    </div>
+    <div id="historySelectedPane" class="history-pane hidden">
+      ${selected.length?`<div class="table-wrap"><table><thead><tr><th>순번</th><th>2차 ORDER</th><th>2차 조</th><th>BATTLE</th><th>본명</th><th>1차 서클</th><th>1차 순위</th></tr></thead><tbody>${selectedRows}</tbody></table></div>`:'<div class="empty">저장된 2차 확정 명단이 없습니다.</div>'}
+    </div>`;
+}
+function showHistoryTab(name,btn){
+  const ranking=$("historyRankingPane");
+  const selected=$("historySelectedPane");
+  if(ranking) ranking.classList.toggle("hidden",name!=="ranking");
+  if(selected) selected.classList.toggle("hidden",name!=="selected");
+  document.querySelectorAll(".history-tab").forEach(b=>b.classList.remove("active"));
+  if(btn) btn.classList.add("active");
+}
+
 function currentRoundLabel(){
   return S.settings.prelimRound === 2 ? "2차 예선" : "1차 예선";
 }
@@ -828,6 +945,7 @@ async function startRound2(){
       payload:archivePayload
     });
     if(archiveError) throw new Error("1차 기록 보관 오류: "+archiveError.message);
+    await loadRoundArchives();
 
     const nextParticipants=S.round2Preview.map(r=>({
       event_id:DPP_CONFIG.eventId,
@@ -860,6 +978,7 @@ async function startRound2(){
     localStorage.clear();
     await loadSettings();
     await refreshAll();
+    await loadRoundArchives();
     alert(`2차 예선 명단 확정 완료 · ${nextParticipants.length}명 · 져지 채점 화면이 열렸어.`);
   }catch(err){
     console.error(err);

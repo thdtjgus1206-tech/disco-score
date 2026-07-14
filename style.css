@@ -197,3 +197,9 @@ button.mini{padding:6px 8px;min-width:34px;margin:2px}
 button.danger{border-color:rgba(255,80,80,.65)}
 button:disabled{opacity:.35;cursor:not-allowed}
 @media(max-width:640px){.round2-add-row{grid-template-columns:1fr}}
+
+.history-panel{border:1px solid rgba(255,255,255,.22)}
+.history-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.history-tab.active{font-weight:800;border-color:currentColor}
+.history-pane.hidden{display:none}
+.history-panel .table-wrap{max-height:520px;overflow:auto}
