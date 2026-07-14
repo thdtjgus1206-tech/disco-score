@@ -165,3 +165,14 @@ button,input,select{font:inherit}button{border:0;cursor:pointer}.app{width:min(1
 .result-board:not(.exporting) .result-rank[contenteditable="true"]:hover{background:rgba(255,255,255,.06)}
 .result-rank[contenteditable="true"]:focus{box-shadow:0 0 0 1px #ff53bb;background:rgba(255,83,187,.1)}
 .result-board.exporting .result-rank[contenteditable="true"]{box-shadow:none!important;background:transparent!important;caret-color:transparent}
+
+/* V7.3 batch review */
+.batch-review-list{display:flex;flex-direction:column;gap:10px;margin:14px 0 18px}
+.batch-review-row{display:grid;grid-template-columns:86px minmax(0,1fr) 130px;align-items:center;gap:12px;padding:14px;border:1px solid rgba(255,63,180,.28);border-radius:16px;background:rgba(5,9,24,.72)}
+.batch-review-row .review-order{font-weight:900;color:#56d8ff;font-size:17px}
+.batch-review-row .review-person{min-width:0}
+.batch-review-row .review-person b{display:block;font-size:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.batch-review-row .review-person small{display:block;color:#aeb8dc;margin-top:4px}
+.batch-review-row input{width:100%;font-size:26px;font-weight:900;text-align:center;min-height:56px;border-radius:12px}
+.batch-warning{text-align:center;color:#ffb8dc}
+@media(max-width:650px){.batch-review-row{grid-template-columns:68px minmax(0,1fr) 92px;gap:8px;padding:11px}.batch-review-row .review-person b{font-size:17px}.batch-review-row input{font-size:22px}}

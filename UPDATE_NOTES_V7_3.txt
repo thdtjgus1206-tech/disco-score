@@ -1,0 +1,9 @@
+D.I.S.C.O Preliminary Program V7.3
+
+- Judge scoring is staged locally in groups of 10.
+- After each group, a review screen shows all 10 scores and allows edits.
+- Scores reach Supabase/admin only after CONFIRM & UPLOAD.
+- Admin live ranking polls every 2.5 seconds in addition to Supabase Realtime.
+- Admin and judge sessions survive browser refresh in the same tab.
+- Draft batch scores survive refresh locally until confirmed.
+- Existing PIN strict validation, readiness gating, natural order, and editable result images are retained.

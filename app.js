@@ -22,14 +22,50 @@ const S = {
   index: 0,
   input: "",
   rankView: "judge",
-  resultEdits: {}
+  resultEdits: {},
+  batchStart: 0,
+  batchDrafts: {},
+  reviewRows: []
 };
 
 let sb = null;
+let livePollTimer = null;
+const SESSION_KEY = "DPP_V7_SESSION";
 
 function $(id){ return document.getElementById(id); }
 function esc(v){ return String(v ?? "").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function circles(){ return ["A","B","C"]; }
+function saveSession(screenId){
+  try{
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+      role:S.role, judge:S.judge, index:S.index,
+      screen:screenId || document.querySelector('.screen.active')?.id || 'home'
+    }));
+  }catch{}
+}
+function clearSession(){ try{ sessionStorage.removeItem(SESSION_KEY); }catch{} }
+function readSession(){ try{return JSON.parse(sessionStorage.getItem(SESSION_KEY)||'null')}catch{return null} }
+function draftKey(){ return `DPP_V7_BATCH_DRAFT_${DPP_CONFIG.eventId}_${mode()}_${S.judge}`; }
+function loadBatchDrafts(){ try{S.batchDrafts=JSON.parse(localStorage.getItem(draftKey())||'{}')}catch{S.batchDrafts={}} }
+function persistBatchDrafts(){ localStorage.setItem(draftKey(), JSON.stringify(S.batchDrafts||{})); }
+function clearBatchDraftsForOrders(orders){ orders.forEach(o=>delete S.batchDrafts[o]); persistBatchDrafts(); }
+function batchBounds(index=S.index){
+  const start=Math.floor(Math.max(0,index)/10)*10;
+  return {start,end:Math.min(start+10,S.queue.length)};
+}
+function startLivePolling(){
+  clearInterval(livePollTimer);
+  livePollTimer=setInterval(async()=>{
+    try{
+      if(S.role==='admin') await refreshScoresOnly();
+      else if(S.role==='judge'){
+        await loadSettings();
+        if(document.visibilityState==='visible') await buildJudgeQueue(false);
+      }
+    }catch(e){ console.warn('poll refresh',e); }
+  },2500);
+}
+
 function orderParts(value){
   const text = String(value ?? "").trim().toUpperCase();
   const match = text.match(/^([A-Z])-(?:(나)-)?(\d+)$/);
@@ -51,6 +87,7 @@ function show(id){
   $(id).classList.add("active");
   if(id === "admin") renderAdmin();
   if(id === "score") renderScore();
+  if(S.role) saveSession(id);
 }
 function setStatus(t, ok=true){
   const p = $("statusPill");
@@ -92,6 +129,18 @@ async function init(){
   }
   renderJudgeSelect();
   updateOfflineStatus();
+  const session=readSession();
+  if(session?.role==='admin'){
+    S.role='admin';
+    show(session.screen==='admin'?'admin':'admin');
+  }else if(session?.role==='judge' && circles().includes(session.judge)){
+    S.role='judge'; S.judge=session.judge; S.index=Number(session.index||0); loadBatchDrafts();
+    await buildJudgeQueue(false);
+    show(session.screen==='batchReview'?'batchReview':'score');
+    if(session.screen==='batchReview') openBatchReview();
+  }
+  startLivePolling();
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'){ if(S.role==='admin') refreshScoresOnly(); else if(S.role==='judge') buildJudgeQueue(false); }});
   if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(()=>{});
 }
 
@@ -182,7 +231,11 @@ async function refreshAll(){
 async function refreshScoresOnly(){
   S.scores = await fetchScores();
   S.logs = await fetchLogs();
-  if(S.role === "admin") renderAdmin();
+  if(S.role === "admin"){
+    if($("adminInfo")) $("adminInfo").textContent = `${S.settings.isReady ? "심사 준비 완료" : "심사 준비 전"} · MODE ${mode().toUpperCase()} · 참가자 ${S.participants.length}명 · 점수row ${S.scores.length}개`;
+    renderProgress(); renderRanking();
+    if(!document.activeElement?.isContentEditable) renderResults();
+  }
 }
 
 function renderJudgeSelect(){
@@ -211,6 +264,7 @@ function adminLogin(){
   }
   $("adminMsg").textContent = "";
   S.role = "admin";
+  saveSession("admin");
   show("admin");
 }
 async function judgeLogin(){
@@ -263,6 +317,8 @@ async function judgeLogin(){
     S.index = 0;
     S.input = "";
     S.queue = [];
+    loadBatchDrafts();
+    saveSession("score");
 
     show("score");
     renderScore();
@@ -274,7 +330,8 @@ async function judgeLogin(){
   }
 }
 function logout(){
-  S.role = null; S.queue=[]; S.index=0; S.input="";
+  S.role = null; S.queue=[]; S.index=0; S.input=""; S.reviewRows=[];
+  clearSession();
   show("home");
 }
 
@@ -470,7 +527,7 @@ function renderParticipants(){
   $("participantTable").innerHTML = S.participants.length ? S.participants.map(p=>`<tr><td>${esc(p.participant_order)}</td><td>${esc(p.participant_circle)}</td><td>${esc(p.participant_name)}</td><td>${esc(p.battle_name)}</td></tr>`).join("") : `<tr><td colspan="4" class="empty">참가자 없음</td></tr>`;
 }
 
-async function buildJudgeQueue(){
+async function buildJudgeQueue(resetRender=true){
   if(!S.settings.isReady){
     S.participants = [];
     S.scores = [];
@@ -497,8 +554,10 @@ async function buildJudgeQueue(){
     return found || {event_id:DPP_CONFIG.eventId,score_mode:mode(),judge_circle:S.judge,judge_name:judgeName(S.judge),participant_order:p.participant_order,participant_circle:p.participant_circle,participant_name:p.participant_name,battle_name:p.battle_name,score:null,updated_at:new Date().toISOString()};
   }).sort((a,b)=>compareParticipantOrder(a.participant_order,b.participant_order));
   S.queue = mergePending(S.queue);
+  loadBatchDrafts();
+  S.queue = S.queue.map(r => S.batchDrafts[r.participant_order] !== undefined ? {...r, draft_score:S.batchDrafts[r.participant_order]} : r);
   if(S.index >= S.queue.length) S.index = 0;
-  renderScore();
+  if(resetRender) renderScore(); else if(document.querySelector("#score.active")) renderScore();
 }
 function mergePending(rows){
   const pending=getPending();
@@ -523,42 +582,103 @@ function renderScore(){
   $("circleBadge").textContent="CIRCLE "+item.participant_circle;
   $("battleName").textContent=item.battle_name || item.participant_name || "NO NAME";
   $("realName").textContent="REAL NAME · "+(item.participant_name||"-");
-  $("scoreDisplay").textContent=S.input || (item.score ?? "0");
+  const shown = S.input || (item.draft_score ?? item.score ?? "0");
+  $("scoreDisplay").textContent=shown;
+  saveSession("score");
 }
 function tap(v){ if(v==="."&&S.input.includes("."))return; if(S.input.length>=5)return; if(S.input==="0"&&v!==".")S.input=""; S.input+=v; $("scoreDisplay").textContent=S.input; }
 function backspace(){ S.input=S.input.slice(0,-1); $("scoreDisplay").textContent=S.input||"0"; }
 function clearScore(){ S.input=""; $("scoreDisplay").textContent="0"; }
+function currentScoreValue(){
+  const item=S.queue[S.index];
+  if(!item) return null;
+  const raw=String(S.input || (item.draft_score ?? item.score ?? '')).trim();
+  if(raw==='') return null;
+  const value=Number(raw);
+  return Number.isFinite(value)?value:null;
+}
+function stageCurrentScore(requireValue=true){
+  const item=S.queue[S.index];
+  if(!item){ alert('참가자가 없어.'); return false; }
+  const value=currentScoreValue();
+  if(value===null){ if(requireValue) alert('점수를 입력해줘.'); return false; }
+  S.batchDrafts[item.participant_order]=value;
+  item.draft_score=value;
+  persistBatchDrafts();
+  S.input='';
+  return true;
+}
 async function saveScoreAndNext(){
-  const item=S.queue[S.index]; if(!item){ alert("참가자가 없어."); return; }
-  const score=Number(S.input || $("scoreDisplay").textContent); if(Number.isNaN(score)){ alert("점수를 입력해줘."); return; }
-  const row={...item, event_id:DPP_CONFIG.eventId, score_mode:mode(), judge_circle:S.judge, judge_name:judgeName(S.judge), score, updated_at:new Date().toISOString()};
-  putPending(row);
-  S.queue[S.index]=row;
-  if(navigator.onLine){
-    try{ await uploadScore(row); removePending([row]); }catch(e){ console.warn(e); }
-  }
-  S.input="";
-  nextDancer();
+  if(!stageCurrentScore(true)) return;
+  const {end}=batchBounds();
+  if(S.index+1>=end || S.index>=S.queue.length-1){ openBatchReview(); return; }
+  S.index++; saveSession('score'); renderScore();
 }
 async function uploadScore(row){
   const {error}=await sb.from("dpp_scores").upsert(row,{onConflict:"event_id,score_mode,judge_circle,participant_order"});
   if(error) throw error;
-  await sb.from("dpp_logs").insert({event_id:row.event_id,score_mode:row.score_mode,judge_circle:row.judge_circle,judge_name:row.judge_name,participant_order:row.participant_order,participant_circle:row.participant_circle,participant_name:row.participant_name,battle_name:row.battle_name,score:row.score});
 }
 async function syncPendingScores(){
-  const pending=getPending();
-  if(!pending.length){ alert("업로드 대기 점수가 없어."); return; }
-  if(!navigator.onLine){ alert(`오프라인이야. 인터넷 연결 후 눌러줘. 대기 ${pending.length}건`); return; }
-  const done=[]; let fail=0;
-  for(const r of pending){
-    try{ await uploadScore(r); done.push(r); removePending(done); }catch(e){ console.error(e); fail++; }
-  }
-  await refreshScoresOnly();
-  await buildJudgeQueue();
-  alert(fail ? `일부 실패 · 성공 ${done.length} / 실패 ${fail}` : `SYNC 완료 · ${done.length}건`);
+  alert('이 버전은 10명 단위 검토 화면의 CONFIRM & UPLOAD 버튼으로만 본부에 저장돼.');
 }
-function nextDancer(){ if(S.index<S.queue.length-1){S.index++;S.input="";renderScore();}else{alert("채점 끝");renderScore();} }
-function prevDancer(){ if(S.index>0){S.index--;S.input="";renderScore();} }
+function nextDancer(){
+  const hasInput=String(S.input||'').trim()!=='';
+  if(hasInput && !stageCurrentScore(true)) return;
+  const {end}=batchBounds();
+  if(S.index+1>=end || S.index>=S.queue.length-1){ openBatchReview(); return; }
+  S.index++; S.input=''; saveSession('score'); renderScore();
+}
+function prevDancer(){ if(S.index>0){S.index--;S.input='';saveSession('score');renderScore();} }
+function openBatchReview(){
+  if(!S.queue.length) return;
+  const {start,end}=batchBounds();
+  S.batchStart=start;
+  S.reviewRows=S.queue.slice(start,end);
+  renderBatchReview();
+  show('batchReview');
+}
+function renderBatchReview(){
+  const rows=S.reviewRows||[];
+  if($("reviewTitle")) $("reviewTitle").textContent=`${S.judge} JUDGE · ${S.batchStart+1}–${S.batchStart+rows.length} REVIEW`;
+  $("batchReviewList").innerHTML=rows.map((r,i)=>{
+    const value=S.batchDrafts[r.participant_order] ?? r.score ?? '';
+    return `<div class="batch-review-row"><div class="review-order">${esc(r.participant_order)}</div><div class="review-person"><b>${esc(r.battle_name||r.participant_name||'-')}</b><small>${esc(r.participant_name||'-')} · CIRCLE ${esc(r.participant_circle)}</small></div><input type="number" step="0.1" inputmode="decimal" data-order="${esc(r.participant_order)}" value="${esc(value)}"></div>`;
+  }).join('');
+}
+function backToBatchScoring(){
+  const inputs=[...document.querySelectorAll('#batchReviewList input[data-order]')];
+  inputs.forEach(input=>{ const v=Number(input.value); if(Number.isFinite(v)) S.batchDrafts[input.dataset.order]=v; });
+  persistBatchDrafts();
+  S.index=S.batchStart; S.input=''; show('score'); renderScore();
+}
+async function confirmBatchScores(){
+  if(!navigator.onLine){ alert('인터넷 연결 후 점수를 확정해줘. 검토 중 점수는 이 기기에 임시 저장돼 있어.'); return; }
+  const inputs=[...document.querySelectorAll('#batchReviewList input[data-order]')];
+  const values={};
+  for(const input of inputs){
+    const v=Number(input.value);
+    if(!Number.isFinite(v)){ alert(`${input.dataset.order} 점수를 확인해줘.`); input.focus(); return; }
+    values[input.dataset.order]=v;
+  }
+  const btn=$("confirmBatchBtn"); btn.disabled=true; btn.textContent='UPLOADING...';
+  try{
+    const now=new Date().toISOString();
+    const rows=S.reviewRows.map(item=>({...item,event_id:DPP_CONFIG.eventId,score_mode:mode(),judge_circle:S.judge,judge_name:judgeName(S.judge),score:values[item.participant_order],updated_at:now})).map(({draft_score,...r})=>r);
+    const {error}=await sb.from('dpp_scores').upsert(rows,{onConflict:'event_id,score_mode,judge_circle,participant_order'});
+    if(error) throw error;
+    const logs=rows.map(r=>({event_id:r.event_id,score_mode:r.score_mode,judge_circle:r.judge_circle,judge_name:r.judge_name,participant_order:r.participant_order,participant_circle:r.participant_circle,participant_name:r.participant_name,battle_name:r.battle_name,score:r.score}));
+    const {error:logError}=await sb.from('dpp_logs').insert(logs);
+    if(logError) console.warn('log insert',logError);
+    clearBatchDraftsForOrders(rows.map(r=>r.participant_order));
+    rows.forEach(r=>{ const idx=S.queue.findIndex(q=>q.participant_order===r.participant_order); if(idx>=0) S.queue[idx]={...S.queue[idx],score:r.score,draft_score:undefined}; });
+    await refreshScoresOnly();
+    const next=S.batchStart+S.reviewRows.length;
+    if(next>=S.queue.length){ S.index=Math.max(0,S.queue.length-1); alert('전체 채점 저장 완료!'); }
+    else S.index=next;
+    S.input=''; S.reviewRows=[]; show('score'); renderScore();
+  }catch(e){ console.error(e); alert('점수 저장 오류: '+e.message); }
+  finally{ btn.disabled=false; btn.textContent='CONFIRM & UPLOAD / 점수 확정'; }
+}
 
 function scoreRows(){ return S.scores.filter(s=>s.score_mode===mode()); }
 function judgeRank(c){ return scoreRows().filter(s=>s.judge_circle===c&&s.score!==null&&s.score!==undefined).sort((a,b)=>Number(b.score)-Number(a.score)||compareParticipantOrder(a.participant_order,b.participant_order)).map((x,i)=>({...x,rank:i+1})); }

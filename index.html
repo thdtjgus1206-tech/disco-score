@@ -3,23 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
-  <title>D.I.S.C.O Preliminary Program V7.2</title>
+  <title>D.I.S.C.O Preliminary Program V7.3</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <meta name="theme-color" content="#02030a">
-  <link rel="stylesheet" href="style.css?v=20260714-natural-order-1">
+  <link rel="stylesheet" href="style.css?v=20260714-batch-review-1">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script defer src="config.js"></script>
-  <script defer src="app.js?v=20260714-natural-order-1"></script>
+  <script defer src="app.js?v=20260714-batch-review-1"></script>
 </head>
 <body>
 <main class="app">
   <section id="home" class="screen active">
     <div class="hero">
       <h1>D.I.S.C.O</h1>
-      <p>PRELIMINARY PROGRAM V7.2 DATA RESET</p>
+      <p>PRELIMINARY PROGRAM V7.3 BATCH REVIEW</p>
       <div id="statusPill" class="status">LOADING...</div>
       <button class="primary" onclick="openJudgeLogin()">JUDGE START</button>
       <button class="ghost admin-btn" onclick="show('adminLogin')">ADMIN MODE</button>
@@ -140,12 +140,12 @@
         <button onclick="tap('4')">4</button><button onclick="tap('5')">5</button><button onclick="tap('6')">6</button>
         <button onclick="tap('7')">7</button><button onclick="tap('8')">8</button><button onclick="tap('9')">9</button>
         <button onclick="tap('.')">.</button><button onclick="tap('0')">0</button><button onclick="backspace()">⌫</button>
-        <button class="wide func" onclick="clearScore()">CLEAR</button><button class="ok" onclick="saveScoreAndNext()">OK</button>
+        <button class="wide func" onclick="clearScore()">CLEAR</button><button class="ok" onclick="saveScoreAndNext()">OK / 임시저장</button>
       </div>
     </div>
     <div class="nav-row">
       <button class="ghost" onclick="prevDancer()">← PREV</button>
-      <button class="ghost" onclick="nextDancer()">NEXT →</button>
+      <button class="ghost" onclick="nextDancer()">NEXT / 임시저장 →</button>
       <button class="ghost" onclick="syncPendingScores()">SYNC UPLOAD</button>
     </div>
     <div class="score-bottom-actions">
@@ -153,6 +153,18 @@
       <button class="ghost" onclick="show('adminLogin')">ADMIN MODE</button>
     </div>
   </section>
+  <section id="batchReview" class="screen">
+    <div class="top">
+      <div><h2 id="reviewTitle">SCORE REVIEW</h2><p class="sub">10명 점수를 확인하고 수정한 뒤 확인 버튼을 눌러야 본부에 저장됩니다.</p></div>
+      <button class="ghost small" onclick="backToBatchScoring()">BACK</button>
+    </div>
+    <div class="panel">
+      <div id="batchReviewList" class="batch-review-list"></div>
+      <button id="confirmBatchBtn" class="primary full" onclick="confirmBatchScores()">CONFIRM & UPLOAD / 점수 확정</button>
+      <p class="sub batch-warning">이 버튼을 누르기 전까지는 관리자 랭킹과 Supabase에 반영되지 않습니다.</p>
+    </div>
+  </section>
+
 </main>
 </body>
 </html>
