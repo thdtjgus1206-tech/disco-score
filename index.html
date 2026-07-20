@@ -3,23 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
-  <title>D.I.S.C.O Preliminary Program V7.11 ROUND ARCHIVE RELOAD</title>
+  <title>D.I.S.C.O Preliminary Program V7.12 ROUND STATE MACHINE</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <meta name="theme-color" content="#02030a">
-  <link rel="stylesheet" href="style.css?v=20260720-round-archive-reload-1">
+  <link rel="stylesheet" href="style.css?v=20260720-round-state-machine-1">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script defer src="config.js"></script>
-  <script defer src="app.js?v=20260720-round-archive-reload-1"></script>
+  <script defer src="app.js?v=20260720-round-state-machine-1"></script>
 </head>
 <body>
 <main class="app">
   <section id="home" class="screen active">
     <div class="hero">
       <h1>D.I.S.C.O</h1>
-      <p>PRELIMINARY PROGRAM V7.11 ROUND ARCHIVE RELOAD BATCH REVIEW</p>
+      <p>PRELIMINARY PROGRAM V7.12 ROUND STATE MACHINE BATCH REVIEW</p>
       <div id="statusPill" class="status">LOADING...</div>
       <button class="primary" onclick="openJudgeLogin()">JUDGE START</button>
       <button class="ghost admin-btn" onclick="show('adminLogin')">ADMIN MODE</button>
@@ -54,7 +54,7 @@
 
   <section id="admin" class="screen">
     <div class="top">
-      <div><h2>DPP ADMIN</h2><p class="sub">V7.11 ROUND ARCHIVE RELOAD AUTO FLOW</p></div>
+      <div><h2>DPP ADMIN</h2><p class="sub">V7.12 ROUND STATE MACHINE AUTO FLOW</p></div>
       <div class="top-actions">
         <button class="ghost small" onclick="show('home')">HOME</button>
         <button class="primary small" onclick="openJudgeLogin()">JUDGE START</button>
@@ -114,8 +114,8 @@
       <div class="top"><div><h3>1차 → 2차 예선 명단 편집 및 확정</h3><p id="round2Info" class="sub">-</p></div></div>
       <p class="sub">자동 진출 명단을 만든 뒤 관리자가 직접 삭제·추가·순서 변경할 수 있습니다. 변경할 때마다 번호와 조가 자동으로 다시 배정됩니다.</p>
       <div class="round2-actions">
-        <button class="ghost" onclick="handleRound2ListButton()">자동 진출 명단 만들기</button>
-        <button class="primary" onclick="startRound2()">명단 최종 확정 · 2차 채점 열기</button>
+        <button class="ghost" id="round2ListBtn" onclick="handleRound2ListButton()">자동 진출 명단 만들기</button>
+        <button class="primary" id="round2ConfirmBtn" onclick="startRound2()">명단 최종 확정 · 2차 채점 열기</button>
       </div>
       <div class="round2-add-row">
         <select id="round2AddSelect"><option value="">진출자를 추가하려면 선택</option></select>
@@ -123,6 +123,12 @@
       </div>
       <div id="round2Preview" class="round2-preview"><div class="empty">자동 진출 명단 만들기를 누르면 편집 가능한 명단이 표시됩니다.</div></div>
       <p class="sub round2-warning">최종 확정 버튼을 누르기 전에는 2차 져지 채점 화면이 열리지 않습니다.</p>
+
+      <div class="round-state-recovery">
+        <button class="ghost" onclick="recoverToRound1()">상태 오류 복구 · 1차 예선으로 돌아가기</button>
+        <p class="sub">프로그램이 2차 상태인데 확정 명단을 찾지 못하는 경우 사용합니다. 참가자와 점수는 삭제하지 않습니다.</p>
+      </div>
+
     </div>
 
     <div class="panel">

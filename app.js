@@ -5,6 +5,7 @@ const DEFAULTS = {
   topCount: 16,
   isReady: false,
   prelimRound: 1,
+  roundPhase: "round1_scoring",
   judges: {
     A: {name:"A JUDGE", pin:"1111"},
     B: {name:"B JUDGE", pin:"2222"},
@@ -29,7 +30,8 @@ const S = {
   reviewRows: [],
   round2Preview: [],
   round2CandidatePool: [],
-  roundArchives: []
+  roundArchives: [],
+  round2Selections: []
 };
 
 let sb = null;
@@ -172,6 +174,7 @@ async function ensureSettingsRow(){
       judges:S.settings.judges,
       is_ready:Boolean(S.settings.isReady),
       prelim_round:Number(S.settings.prelimRound || 1),
+      round_phase:String(S.settings.roundPhase || "round1_scoring"),
       updated_at:new Date().toISOString()
     },{onConflict:"event_id"});
   }catch(e){
@@ -187,6 +190,7 @@ async function loadSettings(){
     S.settings.topCount = Number(data.top_count || DEFAULTS.topCount);
     S.settings.isReady = data.is_ready === true;
     S.settings.prelimRound = Number(data.prelim_round || 1);
+    S.settings.roundPhase = String(data.round_phase || (S.settings.prelimRound===2 ? "round2_active" : "round1_scoring"));
     if(data.judges && typeof data.judges === "object"){
       circles().forEach(c => {
         S.settings.judges[c] = {
@@ -209,6 +213,7 @@ async function saveSettings(){
     judges:S.settings.judges,
     is_ready:Boolean(S.settings.isReady),
     prelim_round:Number(S.settings.prelimRound || 1),
+    round_phase:String(S.settings.roundPhase || "round1_scoring"),
     updated_at:new Date().toISOString()
   },{onConflict:"event_id"});
   if(error) throw error;
@@ -235,6 +240,7 @@ async function refreshAll(){
   if(S.role === "admin") renderAdmin();
   if(S.role === "judge") await buildJudgeQueue();
   await loadRoundArchives();
+  await loadRound2Selections({silent:true});
 }
 async function refreshScoresOnly(){
   S.scores = await fetchScores();
@@ -357,8 +363,10 @@ function renderAdmin(){
   renderResults();
   renderRound2Preview();
   renderRoundHistory();
-  if(Number(S.settings.prelimRound||1)===2 && !S.round2Preview.length){
+  if(isRound2ActivePhase() && !S.round2Preview.length){
     setTimeout(()=>restoreConfirmedRound2List({showAlert:false}),0);
+  }else if(isRound2EditingPhase() && !S.round2Preview.length){
+    setTimeout(()=>restoreRound2Selection({showAlert:false}),0);
   }
 }
 function setMode(m){ S.settings.mode = m; S.resultEdits = {}; renderAdmin(); }
@@ -429,6 +437,32 @@ async function clearBrowserEventData(){
   }
 }
 
+
+async function recoverToRound1(){
+  if(!confirm(
+`현재 예선 상태를 1차 예선으로 복구할까?
+
+• 참가자와 1차 점수는 삭제하지 않음
+• 2차 편집 명단은 별도 저장 상태로 유지
+• 2차 활성 상태만 해제
+• 자동 진출 명단을 다시 만들거나 편집 가능`
+  )) return;
+
+  try{
+    S.settings.isReady=false;
+    S.settings.prelimRound=1;
+    S.settings.roundPhase="round1_scoring";
+    await saveSettings();
+    S.round2Preview=[];
+    S.round2CandidatePool=[];
+    await loadSettings();
+    renderAdmin();
+    alert("1차 예선 상태로 복구했어. 기존 참가자와 점수는 유지돼.");
+  }catch(err){
+    alert("상태 복구 오류: "+(err.message||err));
+  }
+}
+
 async function clearAllData(){
   const first=confirm(
 `⚠️ 모든 행사 정보를 초기화할까?
@@ -468,6 +502,7 @@ async function clearAllData(){
     // 져지 화면이 새 데이터를 읽지 않도록 가장 먼저 심사 준비 상태를 닫는다.
     S.settings.isReady=false;
     S.settings.prelimRound=1;
+    S.settings.roundPhase="round1_scoring";
     await saveSettings();
 
     // Supabase에 남은 행사 데이터 전체 삭제.
@@ -475,6 +510,7 @@ async function clearAllData(){
     await deleteEventRows("dpp_scores");
     await deleteEventRows("dpp_participants");
     await deleteEventRows("dpp_round_archives");
+    await deleteEventRows("dpp_round2_selection");
 
     // 메모리 상태 전체 초기화.
     S.participants=[];
@@ -491,6 +527,7 @@ async function clearAllData(){
     S.round2Preview=[];
     S.round2CandidatePool=[];
     S.roundArchives=[];
+    S.round2Selections=[];
 
     // 브라우저와 PWA에 남은 이전 행사 데이터 삭제.
     await clearBrowserEventData();
@@ -933,8 +970,21 @@ function showHistoryTab(name,btn){
   if(btn) btn.classList.add("active");
 }
 
+
+function roundPhase(){
+  return String(S.settings.roundPhase || (Number(S.settings.prelimRound||1)===2 ? "round2_active" : "round1_scoring"));
+}
+function isRound1Phase(){ return roundPhase()==="round1_scoring"; }
+function isRound2EditingPhase(){ return roundPhase()==="round2_editing"; }
+function isRound2ActivePhase(){ return roundPhase()==="round2_active"; }
+function roundPhaseLabel(){
+  if(isRound2EditingPhase()) return "2차 진출 명단 편집 중";
+  if(isRound2ActivePhase()) return "2차 예선 채점 중";
+  return "1차 예선 채점 중";
+}
+
 function currentRoundLabel(){
-  return S.settings.prelimRound === 2 ? "2차 예선" : "1차 예선";
+  return isRound2ActivePhase() ? "2차 예선" : "1차 예선";
 }
 function allRankedRound1Participants(){
   if(mode()==="circle"){
@@ -994,10 +1044,118 @@ function archivedRound2Candidates(){
 }
 
 
+
+async function loadRound2Selections(options={}){
+  const {silent=true}=options;
+  try{
+    if(!silent) setStatus("2차 명단 불러오는 중...",false);
+    const {data,error}=await sb
+      .from("dpp_round2_selection")
+      .select("*")
+      .eq("event_id",DPP_CONFIG.eventId)
+      .order("position",{ascending:true});
+    if(error) throw error;
+    S.round2Selections=data||[];
+    if(!silent) setStatus("2차 명단 불러오기 완료",true);
+    return S.round2Selections;
+  }catch(err){
+    console.error("round2 selection load error",err);
+    S.round2Selections=[];
+    if(!silent){
+      setStatus("2차 명단 불러오기 오류",false);
+      alert("2차 명단 불러오기 오류: "+(err.message||err));
+    }
+    return [];
+  }
+}
+function selectionToPreview(row){
+  return {
+    participant_order:row.source_order,
+    participant_circle:row.source_circle,
+    participant_name:row.participant_name,
+    battle_name:row.battle_name,
+    source_circle:row.source_circle,
+    source_rank:row.source_rank,
+    new_order:row.round2_order,
+    new_circle:row.round2_circle,
+    round2_number:row.position,
+    selection_status:row.selection_status
+  };
+}
+function previewToSelection(r,i,status="editing"){
+  return {
+    event_id:DPP_CONFIG.eventId,
+    source_order:String(r.participant_order||r.source_order||""),
+    source_circle:String(r.source_circle||r.participant_circle||""),
+    source_rank:Number(r.source_rank||r.rank||0),
+    participant_name:r.participant_name||"",
+    battle_name:r.battle_name||"",
+    position:i+1,
+    round2_order:r.new_order,
+    round2_circle:r.new_circle,
+    selection_status:status,
+    updated_at:new Date().toISOString()
+  };
+}
+async function saveRound2Selections(status="editing"){
+  renumberRound2Preview();
+  const rows=S.round2Preview.map((r,i)=>previewToSelection(r,i,status));
+  const {error:deleteError}=await sb
+    .from("dpp_round2_selection")
+    .delete()
+    .eq("event_id",DPP_CONFIG.eventId);
+  if(deleteError) throw deleteError;
+  if(rows.length){
+    const {error:insertError}=await sb
+      .from("dpp_round2_selection")
+      .insert(rows);
+    if(insertError) throw insertError;
+  }
+  S.round2Selections=rows;
+}
+async function restoreRound2Selection(options={}){
+  const {showAlert=false}=options;
+  const rows=await loadRound2Selections({silent:!showAlert});
+  if(!rows.length){
+    S.round2Preview=[];
+    S.round2CandidatePool=[];
+    renderRound2Preview();
+    if(showAlert) alert("저장된 2차 진출 명단이 없어.");
+    return false;
+  }
+  S.round2Preview=rows.map(selectionToPreview);
+  S.round2CandidatePool=archivedRound2Candidates();
+  renumberRound2Preview();
+  renderRound2Preview();
+  if(showAlert) alert(`저장된 2차 진출 명단 ${rows.length}명을 불러왔어.`);
+  return true;
+}
+async function persistRound2Editing(){
+  try{
+    await saveRound2Selections("editing");
+  }catch(err){
+    console.error(err);
+    alert("2차 편집 명단 저장 오류: "+(err.message||err));
+  }
+}
+
 async function restoreConfirmedRound2List(options={}){
   const {showAlert=false}=options;
-  await loadRoundArchives({silent:true});
 
+  const rows=await loadRound2Selections({silent:!showAlert});
+  const confirmed=rows.filter(r=>r.selection_status==="confirmed");
+
+  if(confirmed.length){
+    S.round2Preview=confirmed.map(selectionToPreview);
+    S.round2CandidatePool=archivedRound2Candidates();
+    renumberRound2Preview();
+    renderRound2Preview();
+    if(showAlert) alert(`확정된 2차 진출 명단 ${confirmed.length}명을 불러왔어.`);
+    return true;
+  }
+
+  // 이전 버전 호환: 전용 테이블에 없으면 ARCHIVE selected_round2를 확인한다.
+  await loadRoundArchives({silent:true});
   const payload=latestRound1ArchivePayload();
   const selected=Array.isArray(payload?.selected_round2) ? payload.selected_round2 : [];
 
@@ -1006,28 +1164,35 @@ async function restoreConfirmedRound2List(options={}){
     S.round2Preview=[];
     renderRound2Preview();
     if(showAlert){
-      alert("저장된 최종 2차 진출 명단을 찾지 못했어. 1차 상태에서 자동 진출 명단을 만들고 최종 확정했는지 확인해줘.");
+      alert("확정된 2차 진출 명단을 찾지 못했어. 상태 복구 버튼으로 1차 상태로 돌아간 뒤 다시 명단을 만들어줘.");
     }
     return false;
   }
 
-  S.round2CandidatePool=archivedRound2Candidates();
   S.round2Preview=selected.map(r=>({...r}));
+  S.round2CandidatePool=archivedRound2Candidates();
   renumberRound2Preview();
   renderRound2Preview();
 
+  // 이전 ARCHIVE 기록도 새 전용 테이블로 자동 이전한다.
+  await saveRound2Selections("confirmed");
+
   if(showAlert){
-    alert(`확정된 2차 진출 명단 ${S.round2Preview.length}명을 다시 불러왔어.`);
+    alert(`기존 기록에서 2차 진출 명단 ${S.round2Preview.length}명을 복원했어.`);
   }
   return true;
 }
 
 async function handleRound2ListButton(){
-  if(Number(S.settings.prelimRound||1)===2){
+  if(isRound2ActivePhase()){
     await restoreConfirmedRound2List({showAlert:true});
     return;
   }
-  buildRound2Preview();
+  if(isRound2EditingPhase()){
+    await restoreRound2Selection({showAlert:true});
+    return;
+  }
+  await buildRound2Preview();
 }
 
 async function refreshRoundRecords(){
@@ -1039,23 +1204,37 @@ async function refreshRoundRecords(){
   renderRound2Preview();
 }
 
-function buildRound2Preview(){
-  if(Number(S.settings.prelimRound||1)===2){
-    restoreConfirmedRound2List({showAlert:true});
+async function buildRound2Preview(){
+  if(isRound2ActivePhase()){
+    await restoreConfirmedRound2List({showAlert:true});
     return;
   }
+  if(isRound2EditingPhase()){
+    await restoreRound2Selection({showAlert:true});
+    return;
+  }
+
   S.round2CandidatePool=allRankedRound1Participants();
   S.round2Preview=rankedQualifiersForRound2().map(r=>({...r}));
   renumberRound2Preview();
+
+  S.settings.roundPhase="round2_editing";
+  S.settings.prelimRound=1;
+  S.settings.isReady=false;
+  await saveSettings();
+  await saveRound2Selections("editing");
+
   renderRound2Preview();
+  alert(`2차 진출 예정 명단 ${S.round2Preview.length}명을 만들었어. 수정 내용은 자동 저장돼.`);
 }
-function removeRound2Candidate(index){
+async function removeRound2Candidate(index){
   if(index<0 || index>=S.round2Preview.length) return;
   S.round2Preview.splice(index,1);
   renumberRound2Preview();
   renderRound2Preview();
+  await persistRound2Editing();
 }
-function addRound2Candidate(){
+async function addRound2Candidate(){
   const select=$("round2AddSelect");
   if(!select || !select.value){ alert("추가할 참가자를 선택해줘."); return; }
   const candidate=S.round2CandidatePool.find(r=>String(r.participant_order)===String(select.value));
@@ -1072,8 +1251,9 @@ function addRound2Candidate(){
   );
   renumberRound2Preview();
   renderRound2Preview();
+  await persistRound2Editing();
 }
-function moveRound2Candidate(index,delta){
+async function moveRound2Candidate(index,delta){
   const next=index+delta;
   if(index<0 || next<0 || index>=S.round2Preview.length || next>=S.round2Preview.length) return;
   const temp=S.round2Preview[index];
@@ -1081,6 +1261,7 @@ function moveRound2Candidate(index,delta){
   S.round2Preview[next]=temp;
   renumberRound2Preview();
   renderRound2Preview();
+  await persistRound2Editing();
 }
 function renderRound2Preview(){
   const box=$("round2Preview");
@@ -1088,17 +1269,23 @@ function renderRound2Preview(){
   const addSelect=$("round2AddSelect");
   if(!box) return;
   if(info){
-    info.textContent=Number(S.settings.prelimRound||1)===2
-      ? `현재 2차 예선 진행 중 · 최종 확정 명단 ${S.round2Preview.length}명`
-      : `현재 1차 예선 · 확정 예정 ${S.round2Preview.length}명 · ${mode()==="circle"?"서클별 진출":"전체 합계 진출"}`;
+    info.textContent=`${roundPhaseLabel()} · 명단 ${S.round2Preview.length}명 · ${mode()==="circle"?"서클별 진출":"전체 합계 진출"}`;
   }
   const buildBtn=document.querySelector('[onclick="handleRound2ListButton()"]') ||
     document.querySelector('[onclick="buildRound2Preview()"]');
   const confirmBtn=document.querySelector('[onclick="startRound2()"]');
-  if(buildBtn) buildBtn.textContent=Number(S.settings.prelimRound||1)===2 ? "확정된 2차 명단 다시 보기" : "자동 진출 명단 만들기";
+  if(buildBtn){
+    buildBtn.textContent=isRound2ActivePhase()
+      ? "확정된 2차 명단 다시 보기"
+      : isRound2EditingPhase()
+        ? "편집 중인 2차 명단 다시 보기"
+        : "자동 진출 명단 만들기";
+  }
   if(confirmBtn){
-    confirmBtn.textContent=Number(S.settings.prelimRound||1)===2 ? "2차 예선 진행 중" : "명단 최종 확정 · 2차 채점 열기";
-    confirmBtn.disabled=Number(S.settings.prelimRound||1)===2;
+    confirmBtn.textContent=isRound2ActivePhase()
+      ? "2차 예선 진행 중"
+      : "명단 최종 확정 · 2차 채점 열기";
+    confirmBtn.disabled=isRound2ActivePhase();
   }
   if(addSelect){
     const included=new Set(S.round2Preview.map(r=>String(r.participant_order)));
@@ -1124,23 +1311,40 @@ function renderRound2Preview(){
 }
 async function startRound2(){
   try{
-    if(Number(S.settings.prelimRound||1)===2){
+    if(isRound2ActivePhase()){
       await restoreConfirmedRound2List({showAlert:true});
       return;
     }
-    if(!S.round2CandidatePool.length) buildRound2Preview();
-    if(!S.round2Preview.length){ alert("확정할 2차 예선 진출자가 없어."); return; }
+
+    if(!S.round2Preview.length){
+      const restored=await restoreRound2Selection({showAlert:false});
+      if(!restored){
+        alert("확정할 2차 예선 진출자가 없어. 먼저 자동 진출 명단을 만들어줘.");
+        return;
+      }
+    }
+
     renumberRound2Preview();
 
     const incomplete = mode()==="circle"
       ? circles().some(c=>S.participants.filter(p=>p.participant_circle===c).some(p=>!S.scores.some(s=>s.judge_circle===c&&s.participant_order===p.participant_order&&s.score!==null&&s.score!==undefined)))
       : S.participants.some(p=>circles().some(c=>!S.scores.some(s=>s.judge_circle===c&&s.participant_order===p.participant_order&&s.score!==null&&s.score!==undefined)));
-    if(incomplete && !confirm("아직 모든 참가자의 채점이 끝나지 않았어. 현재 편집한 명단으로 확정할까?")) return;
-    if(!confirm(`현재 편집한 ${S.round2Preview.length}명을 2차 예선 명단으로 최종 확정할까?\n\n확정 전까지 져지 화면은 열리지 않고, 확정 후에만 2차 채점이 시작됩니다.`)) return;
 
+    if(incomplete && !confirm("아직 모든 참가자의 채점이 끝나지 않았어. 현재 편집한 명단으로 확정할까?")) return;
+    if(!confirm(`현재 편집한 ${S.round2Preview.length}명을 2차 예선 명단으로 최종 확정할까?\n\n모든 저장이 성공한 뒤에만 2차 채점 화면이 열립니다.`)) return;
+
+    setStatus("2차 명단 최종 확정 중...",false);
+
+    // 1) 져지 화면 잠금
     S.settings.isReady=false;
+    S.settings.roundPhase="round2_editing";
+    S.settings.prelimRound=1;
     await saveSettings();
 
+    // 2) 편집 명단을 confirmed 상태로 저장
+    await saveRound2Selections("confirmed");
+
+    // 3) 1차 기록 보관
     const archivePayload={
       round:1,
       scoring_mode:mode(),
@@ -1156,8 +1360,8 @@ async function startRound2(){
       payload:archivePayload
     });
     if(archiveError) throw new Error("1차 기록 보관 오류: "+archiveError.message);
-    await loadRoundArchives();
 
+    // 4) 새 2차 참가자/점수 준비
     const nextParticipants=S.round2Preview.map(r=>({
       event_id:DPP_CONFIG.eventId,
       participant_order:r.new_order,
@@ -1166,9 +1370,6 @@ async function startRound2(){
       battle_name:r.battle_name,
       updated_at:new Date().toISOString()
     }));
-
-    S.settings.prelimRound=2;
-    await saveSettings();
 
     await sb.from("dpp_logs").delete().eq("event_id",DPP_CONFIG.eventId);
     await sb.from("dpp_scores").delete().eq("event_id",DPP_CONFIG.eventId);
@@ -1182,18 +1383,32 @@ async function startRound2(){
     const {error:scoreError}=await sb.from("dpp_scores").upsert(scoreRows2,{onConflict:"event_id,score_mode,judge_circle,participant_order"});
     if(scoreError) throw scoreError;
 
+    // 5) 마지막 단계에서만 실제 2차 활성화
+    S.settings.prelimRound=2;
+    S.settings.roundPhase="round2_active";
     S.settings.isReady=true;
     await saveSettings();
-    S.round2Preview=[];
+
     S.round2CandidatePool=[];
     localStorage.clear();
     await loadSettings();
     await refreshAll();
-    await loadRoundArchives();
+    await loadRound2Selections({silent:true});
+    renderAdmin();
+    setStatus("2차 예선 준비 완료",true);
+
     alert(`2차 예선 명단 확정 완료 · ${nextParticipants.length}명 · 져지 채점 화면이 열렸어.`);
   }catch(err){
     console.error(err);
-    alert(err.message || "2차 예선 전환 오류");
+
+    // 확정 중 오류가 나면 2차 편집 상태로 유지해 재시도 가능
+    S.settings.isReady=false;
+    S.settings.prelimRound=1;
+    S.settings.roundPhase="round2_editing";
+    try{ await saveSettings(); }catch{}
+
+    setStatus("2차 확정 오류",false);
+    alert("2차 예선 확정 오류: "+(err.message||err)+"\n\n명단은 편집 상태로 보관돼. 오류를 해결한 뒤 다시 확정하면 돼.");
   }
 }
 function scoreRows(){ return S.scores.filter(s=>s.score_mode===mode()); }
