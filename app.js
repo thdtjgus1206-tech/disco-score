@@ -416,26 +416,123 @@ async function resetPins(){
   alert("PIN 초기화 완료");
 }
 
-async function clearAllData(){
-  if(!confirm("현재 테스트 참가자/점수/로그를 전부 삭제할까?")) return;
+async function deleteEventRows(table){
+  const {error}=await sb.from(table).delete().eq("event_id",DPP_CONFIG.eventId);
+  if(error) throw new Error(`${table} 삭제 오류: ${error.message}`);
+}
+
+async function clearBrowserEventData(){
+  try{ localStorage.clear(); }catch{}
+  try{ sessionStorage.clear(); }catch{}
   try{
-    await sb.from("dpp_logs").delete().eq("event_id", DPP_CONFIG.eventId);
-    await sb.from("dpp_scores").delete().eq("event_id", DPP_CONFIG.eventId);
-    await sb.from("dpp_participants").delete().eq("event_id", DPP_CONFIG.eventId);
-    S.settings.isReady = false;
-    await saveSettings();
-    localStorage.clear();
-    S.participants = [];
-    S.scores = [];
-    S.logs = [];
-    S.queue = [];
-    S.index = 0;
-    S.input = "";
-    await refreshAll();
-    renderAdmin();
-    alert("초기화 완료. 이제 참가자 파일을 새로 업로드해줘.");
+    if("caches" in window){
+      const keys=await caches.keys();
+      await Promise.all(keys.map(key=>caches.delete(key)));
+    }
   }catch(err){
-    alert("초기화 오류: " + err.message);
+    console.warn("cache clear failed",err);
+  }
+}
+
+async function clearAllData(){
+  const first=confirm(
+`⚠️ 모든 행사 정보를 초기화할까?
+
+삭제되는 항목
+• 참가자 명단 및 업로드 결과
+• 1차·2차 모든 점수
+• 져지 채점 진행 기록
+• 1차 점수·순위 보관 기록
+• 2차 진출자 명단 및 ORDER
+• 결과 화면과 기기 저장 데이터
+
+유지되는 항목
+• 관리자 PIN
+• 져지 이름과 져지 PIN
+• MODE / TOP 설정
+
+초기화 후 프로그램은 1차 예선 시작 전 상태로 돌아갑니다.`
+  );
+  if(!first) return;
+
+  const typed=prompt(
+`이 작업은 되돌릴 수 없습니다.
+
+계속하려면 아래 칸에
+초기화
+라고 정확히 입력해줘.`
+  );
+  if(String(typed||"").trim()!=="초기화"){
+    alert("입력 내용이 일치하지 않아 초기화를 취소했어.");
+    return;
+  }
+
+  try{
+    setStatus("전체 초기화 중...",false);
+
+    // 져지 화면이 새 데이터를 읽지 않도록 가장 먼저 심사 준비 상태를 닫는다.
+    S.settings.isReady=false;
+    S.settings.prelimRound=1;
+    await saveSettings();
+
+    // Supabase에 남은 행사 데이터 전체 삭제.
+    await deleteEventRows("dpp_logs");
+    await deleteEventRows("dpp_scores");
+    await deleteEventRows("dpp_participants");
+    await deleteEventRows("dpp_round_archives");
+
+    // 메모리 상태 전체 초기화.
+    S.participants=[];
+    S.scores=[];
+    S.logs=[];
+    S.queue=[];
+    S.index=0;
+    S.input="";
+    S.rankView="judge";
+    S.resultEdits={};
+    S.batchStart=0;
+    S.batchDrafts={};
+    S.reviewRows=[];
+    S.round2Preview=[];
+    S.round2CandidatePool=[];
+    S.roundArchives=[];
+
+    // 브라우저와 PWA에 남은 이전 행사 데이터 삭제.
+    await clearBrowserEventData();
+
+    // 설정은 유지하되 1차 예선·심사 준비 전 상태를 DB에 다시 확정한다.
+    S.settings.isReady=false;
+    S.settings.prelimRound=1;
+    await saveSettings();
+    await loadSettings();
+
+    const fileInput=$("fileInput");
+    if(fileInput) fileInput.value="";
+    const fileName=$("fileName");
+    if(fileName) fileName.textContent="아직 파일 없음";
+
+    renderAdmin();
+    renderRoundHistory();
+    renderRound2Preview();
+    updateOfflineStatus();
+    setStatus("1차 예선 준비 전",true);
+
+    alert(
+`전체 초기화 완료!
+
+• 이전 참가자와 점수 삭제
+• 1차 기록과 2차 명단 삭제
+• 2차 상태 해제
+• 1차 예선으로 복귀
+• 기기 캐시 삭제
+
+이제 새 참가자 파일을 업로드하고
+SAVE ALL SETTINGS / 심사 준비를 눌러줘.`
+    );
+  }catch(err){
+    console.error(err);
+    setStatus("초기화 오류",false);
+    alert("전체 초기화 오류: "+(err.message||err));
   }
 }
 

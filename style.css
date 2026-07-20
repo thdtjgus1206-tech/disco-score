@@ -203,3 +203,16 @@ button:disabled{opacity:.35;cursor:not-allowed}
 .history-tab.active{font-weight:800;border-color:currentColor}
 .history-pane.hidden{display:none}
 .history-panel .table-wrap{max-height:520px;overflow:auto}
+
+.full-reset-btn{
+  margin-top:12px;
+  min-height:52px;
+  font-weight:900;
+  font-size:15px;
+  border-width:2px;
+}
+.reset-warning{
+  margin-top:8px;
+  line-height:1.55;
+  font-weight:700;
+}
