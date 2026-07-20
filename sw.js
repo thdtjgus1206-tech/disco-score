@@ -1,4 +1,4 @@
-const CACHE_NAME = "dpp-full-event-reset-v1";
+const CACHE_NAME = "dpp-round-archive-reload-v1";
 
 self.addEventListener("install", event => {
   self.skipWaiting();
