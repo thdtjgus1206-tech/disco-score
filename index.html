@@ -11,8 +11,10 @@
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script defer src="config.js"></script>
-  <script defer src="app.js?v=20260720-round-state-machine-1"></script>
+  <script defer src="app.js?v=20260727-v714-base"></script>
+  <script defer src="v714.js?v=20260727-v714-stability"></script>
 </head>
 <body>
 <main class="app">
@@ -54,7 +56,7 @@
 
   <section id="admin" class="screen">
     <div class="top">
-      <div><h2>DPP ADMIN</h2><p class="sub">V7.12 ROUND STATE MACHINE AUTO FLOW</p></div>
+      <div><h2>DPP ADMIN</h2><p class="sub">V7.14 INTEGRATED STABILITY</p><span class="v714-badge">관리자 단독 전환 · 져지 자동 동기화</span></div>
       <div class="top-actions">
         <button class="ghost small" onclick="show('home')">HOME</button>
         <button class="primary small" onclick="openJudgeLogin()">JUDGE START</button>
@@ -84,6 +86,16 @@
         <div class="judge-card"><h4>C JUDGE</h4><label>NAME</label><input id="nameC"><label>PIN</label><input id="pinC" inputmode="numeric"></div>
       </div>
       <button class="primary full" onclick="saveAllSettings()">SAVE ALL SETTINGS</button>
+    </div>
+
+    <div class="panel">
+      <div class="top"><div><h3>RANDOM A/B/C CIRCLE ASSIGNMENT</h3><p class="sub">원본 명단을 완전 랜덤으로 섞고 A/B/C 인원 차이를 최대 1명으로 맞춥니다.</p></div><strong id="randomSummary">0명</strong></div>
+      <label class="file-btn">원본 명단 선택<input type="file" accept=".xlsx,.xls,.csv" onchange="handleRandomSourceFile(event)"></label>
+      <p id="randomFileName" class="sub">아직 원본 파일 없음</p>
+      <div class="random-actions"><button id="randomAssignBtn" class="ghost" onclick="randomAssignParticipants()" disabled>완전 랜덤 배정</button><button id="randomRerollBtn" class="ghost" onclick="randomAssignParticipants()" disabled>다시 배정</button><button id="randomApplyBtn" class="primary" onclick="applyRandomAssignment()" disabled>현재 1차 명단으로 적용</button></div>
+      <div class="table-wrap"><table><thead><tr><th>채점 순서</th><th>ORDER</th><th>BATTLE</th><th>본명</th></tr></thead><tbody id="randomPreview"><tr><td colspan="4" class="empty">원본 명단을 올린 뒤 랜덤 배정을 눌러줘.</td></tr></tbody></table></div>
+      <div class="random-actions"><button id="randomExcelBtn" class="ghost" onclick="downloadRandomExcel()" disabled>배정 엑셀 다운로드</button><button id="randomZipBtn" class="ghost" onclick="downloadRandomImagesZip()" disabled>A/B/C 이미지 ZIP</button></div>
+      <div id="randomPosterStage" class="random-poster-stage"></div>
     </div>
 
     <div class="panel">
@@ -135,6 +147,9 @@
       <h3>PROGRESS / SYNC</h3>
       <div id="adminInfo" class="sub">-</div>
       <div id="progressList" class="progress-list"></div>
+      <div id="lastSyncAt" class="sync-line">마지막 서버 확인 -</div>
+      <div class="top" style="margin-top:14px"><h4>서버 저장 완료 검사</h4><button class="ghost small" onclick="v714RefreshCompletion(true)">지금 다시 확인</button></div>
+      <div id="completionDetails" class="completion-grid"></div>
     </div>
 
     <div class="panel">
