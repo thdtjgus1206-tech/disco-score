@@ -1,4 +1,4 @@
-const CACHE_NAME = "dpp-v714-story-export-1080x1920-v2";
+const CACHE_NAME = "dpp-v714-integrated-stability-v1";
 
 self.addEventListener("install", event => {
   self.skipWaiting();

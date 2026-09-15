@@ -1546,20 +1546,10 @@ async function saveResultImage(setKey){
   board.classList.add("exporting");
   await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   try{
-    // Capture the fixed 9:16 board, then composite it onto an EXACT
-    // Instagram Story canvas. This guarantees the downloaded PNG is
-    // always 1080 x 1920 regardless of browser DPR / html2canvas quirks.
-    const captured = await html2canvas(board,{
+    const canvas = await html2canvas(board,{
       backgroundColor:"#081321", scale:2, useCORS:true,
       width:540, height:960, windowWidth:540, windowHeight:960, scrollX:0, scrollY:0
     });
-    const canvas=document.createElement("canvas");
-    canvas.width=1080;
-    canvas.height=1920;
-    const ctx=canvas.getContext("2d");
-    ctx.fillStyle="#081321";
-    ctx.fillRect(0,0,1080,1920);
-    ctx.drawImage(captured,0,0,captured.width,captured.height,0,0,1080,1920);
     const a=document.createElement("a");
     a.href=canvas.toDataURL("image/png");
     const topN=Math.max(1,Number(S.settings.topCount||6));
