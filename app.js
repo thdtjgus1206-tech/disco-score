@@ -1263,6 +1263,65 @@ async function moveRound2Candidate(index,delta){
   renderRound2Preview();
   await persistRound2Editing();
 }
+function secureShuffle(items){
+  const out=[...items];
+  for(let i=out.length-1;i>0;i--){
+    let j;
+    if(window.crypto?.getRandomValues){
+      const buf=new Uint32Array(1); window.crypto.getRandomValues(buf); j=buf[0]%(i+1);
+    }else j=Math.floor(Math.random()*(i+1));
+    [out[i],out[j]]=[out[j],out[i]];
+  }
+  return out;
+}
+async function shuffleRound2Order(){
+  if(isRound2ActivePhase()){
+    alert('2차 채점이 이미 열린 뒤에는 순서를 바꿀 수 없어.'); return;
+  }
+  if(!S.round2Preview.length){
+    alert('먼저 자동 진출 명단을 만들어줘.'); return;
+  }
+  if(!confirm(`현재 ${S.round2Preview.length}명의 2차 순서를 프로그램이 랜덤으로 다시 정할까?\n\n배정 후 A-1부터 10명씩 A/B/C 순서로 자동 번호가 붙어.`)) return;
+  S.round2Preview=secureShuffle(S.round2Preview);
+  renumberRound2Preview();
+  renderRound2Preview();
+  await persistRound2Editing();
+  alert('2차 예선 순서 랜덤 배정과 서버 저장이 완료됐어.');
+}
+function round2StoryBoardHtml(circle, rows, page, total){
+  return `<div class="round2-story-board">
+    <div class="round2-story-logo">D.I.S.C.O</div>
+    <div class="round2-story-sub">2ND PRELIMINARY · ${esc(circle)} CIRCLE · ORDER</div>
+    <div class="round2-story-list">${rows.map((r,i)=>`<div class="round2-story-row">
+      <b>${esc(r.new_order||`${circle}-${i+1}`)}</b>
+      <strong>${esc(r.battle_name||r.participant_name||'-')}</strong>
+    </div>`).join('')}</div>
+    <div class="round2-story-foot">2ND PRELIMINARY ORDER · ${page}/${total}</div>
+  </div>`;
+}
+async function downloadRound2OrderStories(){
+  if(!S.round2Preview.length){ alert('먼저 2차 진출 명단과 순서를 만들어줘.'); return; }
+  if(typeof html2canvas==='undefined'){ alert('이미지 라이브러리를 불러오지 못했어. 인터넷 연결 후 다시 시도해줘.'); return; }
+  if(typeof JSZip==='undefined'){ alert('ZIP 라이브러리를 불러오지 못했어. 인터넷 연결 후 다시 시도해줘.'); return; }
+  renumberRound2Preview();
+  const groups=[...new Set(S.round2Preview.map(r=>r.new_circle).filter(Boolean))];
+  const zip=new JSZip();
+  const stage=document.createElement('div');
+  stage.className='round2-story-stage'; document.body.appendChild(stage);
+  try{
+    for(let gi=0;gi<groups.length;gi++){
+      const c=groups[gi]; const rows=S.round2Preview.filter(r=>r.new_circle===c);
+      stage.innerHTML=round2StoryBoardHtml(c,rows,gi+1,groups.length);
+      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+      const canvas=await html2canvas(stage.firstElementChild,{backgroundColor:'#081321',scale:2,useCORS:true,width:540,height:960,windowWidth:540,windowHeight:960,scrollX:0,scrollY:0});
+      const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+      zip.file(`DPP_ROUND2_${c}_ORDER_STORY_1080x1920.png`,blob);
+    }
+    const blob=await zip.generateAsync({type:'blob'}); const link=document.createElement('a');
+    link.href=URL.createObjectURL(blob); link.download='DPP_ROUND2_ORDER_STORY_1080x1920.zip'; link.click();
+    setTimeout(()=>URL.revokeObjectURL(link.href),1500);
+  } finally { stage.remove(); }
+}
 function renderRound2Preview(){
   const box=$("round2Preview");
   const info=$("round2Info");
@@ -1464,13 +1523,13 @@ function resultSets(){
   if(mode() === "circle"){
     return circles().map(c => ({
       key:c,
-      title:`${c} JUDGE · ${judgeName(c)} · TOP ${Math.max(1, Number(S.settings.topCount || 6))}`,
+      title:`${c} CIRCLE / TOP ${Math.max(1, Number(S.settings.topCount || 6))}`,
       rows:cutoffRows(judgeRank(c), "score")
     }));
   }
   return [{
     key:"TOTAL",
-    title:`ALL GROUPS · TOTAL / AVG · TOP ${Math.max(1, Number(S.settings.topCount || 6))}`,
+    title:`TOP ${Math.max(1, Number(S.settings.topCount || 6))}`,
     rows:cutoffRows(totalRank(), "total")
   }];
 }
@@ -1515,7 +1574,7 @@ function resultRowHtml(setKey, r){
     <b class="result-rank ${r.rank===1?'gold':'dark'}" contenteditable="true" spellcheck="false" data-edit-key="${esc(key)}" data-field="rank" oninput="rememberResultEdit(this)">${esc(rankLabel)}</b>
     <span class="result-person">
       <strong contenteditable="true" spellcheck="false" data-edit-key="${esc(key)}" data-field="battle" oninput="rememberResultEdit(this)">${esc(battle)}</strong>
-      <small>REAL NAME · <span contenteditable="true" spellcheck="false" data-edit-key="${esc(key)}" data-field="real" oninput="rememberResultEdit(this)">${esc(real)}</span> · ORDER <span contenteditable="true" spellcheck="false" data-edit-key="${esc(key)}" data-field="order" oninput="rememberResultEdit(this)">${esc(order)}</span> · GROUP <span contenteditable="true" spellcheck="false" data-edit-key="${esc(key)}" data-field="circle" oninput="rememberResultEdit(this)">${esc(circle)}</span></small>
+
     </span>
   </div>`;
 }
