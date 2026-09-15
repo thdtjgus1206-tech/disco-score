@@ -1021,13 +1021,11 @@ function rankedQualifiersForRound2(){
     .sort((a,b)=>Number(a.source_rank)-Number(b.source_rank)||compareParticipantOrder(a.participant_order,b.participant_order));
 }
 function renumberRound2Preview(){
-  // 2차는 A/B/C로 다시 나누지 않고 30명 전체를 하나의 순서로 사용한다.
-  S.round2Preview=S.round2Preview.map((r,i)=>({
-    ...r,
-    new_order:String(i+1),
-    new_circle:"ALL",
-    round2_number:i+1
-  }));
+  S.round2Preview=S.round2Preview.map((r,i)=>{
+    const groupIndex=Math.floor(i/10);
+    const newCircle=String.fromCharCode(65+groupIndex);
+    return {...r,new_order:`${newCircle}-${(i%10)+1}`,new_circle:newCircle,round2_number:i+1};
+  });
 }
 
 function latestRound1ArchivePayload(){
@@ -1265,58 +1263,6 @@ async function moveRound2Candidate(index,delta){
   renderRound2Preview();
   await persistRound2Editing();
 }
-function secureShuffle(items){
-  const out=[...items];
-  for(let i=out.length-1;i>0;i--){
-    let j;
-    if(window.crypto?.getRandomValues){
-      const buf=new Uint32Array(1); window.crypto.getRandomValues(buf); j=buf[0]%(i+1);
-    }else j=Math.floor(Math.random()*(i+1));
-    [out[i],out[j]]=[out[j],out[i]];
-  }
-  return out;
-}
-async function shuffleRound2Order(){
-  if(isRound2ActivePhase()){
-    alert('2차 채점이 이미 열린 뒤에는 순서를 바꿀 수 없어.'); return;
-  }
-  if(!S.round2Preview.length){
-    alert('먼저 자동 진출 명단을 만들어줘.'); return;
-  }
-  if(!confirm(`현재 ${S.round2Preview.length}명의 2차 순서를 프로그램이 랜덤으로 다시 정할까?\n\nA/B/C로 나누지 않고 전체 명단에 1~${S.round2Preview.length}번 순서가 붙어.`)) return;
-  S.round2Preview=secureShuffle(S.round2Preview);
-  renumberRound2Preview();
-  renderRound2Preview();
-  await persistRound2Editing();
-  alert('2차 예선 순서 랜덤 배정과 서버 저장이 완료됐어.');
-}
-function round2StoryBoardHtml(rows){
-  return `<div class="round2-story-board round2-story-board-all">
-    <div class="round2-story-logo">D.I.S.C.O</div>
-    <div class="round2-story-sub">2ND PRELIMINARY · ORDER · ${rows.length} DANCERS</div>
-    <div class="round2-story-list round2-story-list-all">${rows.map((r,i)=>`<div class="round2-story-row round2-story-row-all">
-      <b>#${i+1}</b>
-      <strong>${esc(r.battle_name||r.participant_name||'-')}</strong>
-    </div>`).join('')}</div>
-    <div class="round2-story-foot">2ND PRELIMINARY · FULL ORDER</div>
-  </div>`;
-}
-async function downloadRound2OrderStories(){
-  if(!S.round2Preview.length){ alert('먼저 2차 진출 명단과 순서를 만들어줘.'); return; }
-  if(typeof html2canvas==='undefined'){ alert('이미지 라이브러리를 불러오지 못했어. 인터넷 연결 후 다시 시도해줘.'); return; }
-  renumberRound2Preview();
-  const stage=document.createElement('div');
-  stage.className='round2-story-stage'; document.body.appendChild(stage);
-  try{
-    stage.innerHTML=round2StoryBoardHtml(S.round2Preview);
-    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-    const canvas=await html2canvas(stage.firstElementChild,{backgroundColor:'#081321',scale:2,useCORS:true,width:540,height:960,windowWidth:540,windowHeight:960,scrollX:0,scrollY:0});
-    const link=document.createElement('a');
-    link.href=canvas.toDataURL('image/png');
-    link.download='DPP_ROUND2_FULL_ORDER_STORY_1080x1920.png';
-    link.click();
-  } finally { stage.remove(); }
-}
 function renderRound2Preview(){
   const box=$("round2Preview");
   const info=$("round2Info");
@@ -1518,13 +1464,13 @@ function resultSets(){
   if(mode() === "circle"){
     return circles().map(c => ({
       key:c,
-      title:`${c} CIRCLE / TOP ${Math.max(1, Number(S.settings.topCount || 6))}`,
+      title:`${c} JUDGE · ${judgeName(c)} · TOP ${Math.max(1, Number(S.settings.topCount || 6))}`,
       rows:cutoffRows(judgeRank(c), "score")
     }));
   }
   return [{
     key:"TOTAL",
-    title:`TOP ${Math.max(1, Number(S.settings.topCount || 6))}`,
+    title:`ALL GROUPS · TOTAL / AVG · TOP ${Math.max(1, Number(S.settings.topCount || 6))}`,
     rows:cutoffRows(totalRank(), "total")
   }];
 }
@@ -1557,14 +1503,6 @@ function updateResultBoardDensity(board){
     if(list) list.innerHTML = `<div class="result-empty">결과 없음</div>`;
   }
 }
-function formatResultOrder(circle, order){
-  const raw=String(order||'').trim();
-  const m=raw.match(/^([A-Za-z]+)[-\s]?(\d+)$/);
-  if(m) return `${m[1].toUpperCase()}조 · ${m[2]}번`;
-  if(String(circle||'').toUpperCase()==='ALL') return `2차 · ${raw||'-'}번`;
-  const c=String(circle||'').trim();
-  return c && c!=='-' ? `${c}조 · ${raw||'-'}번` : `${raw||'-'}번`;
-}
 function resultRowHtml(setKey, r){
   const key = editKey(setKey,r);
   const battle = editedValue(setKey,r,"battle",r.battle_name || r.participant_name || "-");
@@ -1577,7 +1515,7 @@ function resultRowHtml(setKey, r){
     <b class="result-rank ${r.rank===1?'gold':'dark'}" contenteditable="true" spellcheck="false" data-edit-key="${esc(key)}" data-field="rank" oninput="rememberResultEdit(this)">${esc(rankLabel)}</b>
     <span class="result-person">
       <strong contenteditable="true" spellcheck="false" data-edit-key="${esc(key)}" data-field="battle" oninput="rememberResultEdit(this)">${esc(battle)}</strong>
-      <small>${esc(formatResultOrder(circle,order))}</small>
+      <small>REAL NAME · <span contenteditable="true" spellcheck="false" data-edit-key="${esc(key)}" data-field="real" oninput="rememberResultEdit(this)">${esc(real)}</span> · ORDER <span contenteditable="true" spellcheck="false" data-edit-key="${esc(key)}" data-field="order" oninput="rememberResultEdit(this)">${esc(order)}</span> · GROUP <span contenteditable="true" spellcheck="false" data-edit-key="${esc(key)}" data-field="circle" oninput="rememberResultEdit(this)">${esc(circle)}</span></small>
     </span>
   </div>`;
 }
@@ -1618,6 +1556,64 @@ async function saveResultImage(setKey){
     a.download=`DPP_${mode()==="circle"?setKey:"TOTAL"}_TOP_${topN}.png`;
     a.click();
   } finally { board.classList.remove("exporting"); }
+}
+
+
+
+/* 2026-09-15: confirmed round-2 order -> 3 Instagram Story images (10 dancers each) */
+async function downloadRound2StoryImages(){
+  const btn=$("round2StoryBtn");
+  if(btn) btn.disabled=true;
+  try{
+    let rows=[];
+    try{
+      const {data,error}=await sb.from("dpp_round2_selection")
+        .select("*").eq("event_id",DPP_CONFIG.eventId)
+        .eq("selection_status","confirmed").order("position",{ascending:true});
+      if(error) throw error;
+      rows=(data||[]).map(selectionToPreview);
+    }catch(err){ console.warn("confirmed round2 list query failed",err); }
+    if(!rows.length && isRound2ActivePhase() && S.round2Preview?.length) rows=S.round2Preview.map(r=>({...r}));
+    if(!rows.length){
+      alert("최종 확정된 2차 예선 진출자 명단이 없어. 먼저 ‘명단 최종 확정 · 2차 채점 열기’를 완료해줘.");
+      return;
+    }
+    rows.sort((a,b)=>Number(a.round2_number||999)-Number(b.round2_number||999));
+    const pages=[];
+    for(let i=0;i<rows.length;i+=10) pages.push(rows.slice(i,i+10));
+    const stage=document.createElement("div");
+    stage.style.cssText="position:fixed;left:-10000px;top:0;width:540px;height:960px;z-index:-1;";
+    document.body.appendChild(stage);
+    try{
+      for(let p=0;p<pages.length;p++){
+        const start=p*10+1, end=p*10+pages[p].length;
+        stage.innerHTML=`<div style="box-sizing:border-box;width:540px;height:960px;overflow:hidden;background:#081321;color:#fff;padding:44px 36px 38px;font-family:Arial,'Noto Sans KR',sans-serif;border:2px solid #57203f;border-radius:28px;">
+          <div style="font-size:52px;font-weight:900;letter-spacing:7px;text-align:center;color:#ff4fb3;-webkit-text-stroke:1px #ff4fb3;">D.I.S.C.O</div>
+          <div style="margin-top:12px;text-align:center;font-size:15px;font-weight:800;letter-spacing:3px;color:#aeb9ca;">2차 예선 순서 · ${start}–${end}</div>
+          <div style="margin-top:30px;border-top:1px solid #344052;">${pages[p].map((r,j)=>{
+            const no=Number(r.round2_number||start+j);
+            const name=esc(r.battle_name||r.participant_name||'-');
+            const real=esc(r.participant_name||'-');
+            const order=esc(r.new_order||r.round2_order||`${no}`);
+            return `<div style="height:72px;box-sizing:border-box;border-bottom:1px solid #344052;display:flex;align-items:center;gap:18px;">
+              <div style="width:64px;font-size:30px;font-weight:900;color:${no===1?'#ffd84d':'#7f8ca1'};">#${no}</div>
+              <div style="min-width:0;flex:1;"><div style="font-size:22px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>
+              <div style="margin-top:4px;font-size:11px;font-weight:700;color:#9eabbf;letter-spacing:.4px;">${real} · 2차 ORDER ${order}</div></div>
+            </div>`;
+          }).join('')}</div>
+        </div>`;
+        await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+        const canvas=await html2canvas(stage.firstElementChild,{backgroundColor:'#081321',scale:2,useCORS:true,width:540,height:960,windowWidth:540,windowHeight:960,scrollX:0,scrollY:0});
+        const a=document.createElement('a');
+        a.href=canvas.toDataURL('image/png');
+        a.download=`DPP_ROUND2_ORDER_${start}-${end}_STORY_1080x1920.png`;
+        document.body.appendChild(a);a.click();a.remove();
+        await new Promise(r=>setTimeout(r,250));
+      }
+      alert(`2차 예선 순서를 ${pages.length}개의 인스타 스토리 이미지(1080×1920)로 저장했어.`);
+    }finally{ stage.remove(); }
+  }catch(err){ console.error(err); alert("2차 순서 이미지 저장 오류: "+(err.message||err)); }
+  finally{ if(btn) btn.disabled=false; }
 }
 
 window.addEventListener("error", e => {

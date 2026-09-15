@@ -7,14 +7,14 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <meta name="theme-color" content="#02030a">
-  <link rel="stylesheet" href="style.css?v=20260916-story-round2-full30-v3">
+  <link rel="stylesheet" href="style.css?v=20260720-round-state-machine-1">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script defer src="config.js"></script>
-  <script defer src="app.js?v=20260916-story-round2-full30-v3"></script>
-  <script defer src="v714.js?v=20260916-story-round2-full30-v3"></script>
+  <script defer src="app.js?v=20260915-round2-story"></script>
+  <script defer src="v714.js?v=20260727-v714-stability"></script>
 </head>
 <body>
 <main class="app">
@@ -124,12 +124,11 @@
 
     <div class="panel round2-panel">
       <div class="top"><div><h3>1차 → 2차 예선 명단 편집 및 확정</h3><p id="round2Info" class="sub">-</p></div></div>
-      <p class="sub">자동 진출 명단을 만든 뒤 프로그램에서 2차 30명 전체 순서를 랜덤 배정할 수 있습니다. A/B/C로 다시 나누지 않고 전체 1~30번 ORDER가 생성되며, 확정 전에는 ↑↓로 직접 수정할 수도 있습니다.</p>
+      <p class="sub">자동 진출 명단을 만든 뒤 관리자가 직접 삭제·추가·순서 변경할 수 있습니다. 변경할 때마다 번호와 조가 자동으로 다시 배정됩니다.</p>
       <div class="round2-actions">
         <button class="ghost" id="round2ListBtn" onclick="handleRound2ListButton()">자동 진출 명단 만들기</button>
-        <button class="ghost" id="round2ShuffleBtn" onclick="shuffleRound2Order()">2차 순서 자동 랜덤 배정</button>
-        <button class="ghost" id="round2StoryBtn" onclick="downloadRound2OrderStories()">2차 30명 전체 순서 STORY 이미지 다운로드</button>
         <button class="primary" id="round2ConfirmBtn" onclick="startRound2()">명단 최종 확정 · 2차 채점 열기</button>
+        <button class="ghost" id="round2StoryBtn" onclick="downloadRound2StoryImages()">2차 순서 STORY 이미지 다운로드</button>
       </div>
       <div class="round2-add-row">
         <select id="round2AddSelect"><option value="">진출자를 추가하려면 선택</option></select>
