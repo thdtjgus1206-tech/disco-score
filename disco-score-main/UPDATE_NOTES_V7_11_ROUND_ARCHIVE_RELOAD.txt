@@ -1,0 +1,11 @@
+D.I.S.C.O Preliminary Program V7.11 ROUND ARCHIVE RELOAD
+
+수정 내용
+- 확정된 2차 명단 다시 보기 버튼이 Supabase 기록을 직접 재조회
+- 기록 새로고침 버튼 정상 작동
+- 관리자 모드 재진입 시 확정된 2차 명단과 ORDER 자동 복원
+- 빈 메모리 상태 때문에 기록 새로고침 안내만 나오던 문제 수정
+- V7.10 전체 정보 초기화 기능 유지
+
+Supabase SQL 수정은 필요 없습니다.
+GitHub에 이 버전 파일 전체만 교체하면 됩니다.

@@ -1,0 +1,7 @@
+D.I.S.C.O V7.14 Instagram Story Export Fix
+
+- Ranking image download output is now forcibly composited to exactly 1080 x 1920 px (9:16).
+- Existing ranking content, ordering, names, ORDER/GROUP text, and visual design are unchanged.
+- Fix applies to SAVE A/B/C IMAGE and TOTAL result image exports handled by saveResultImage().
+- Supabase schema/data is unchanged. No SQL execution is required.
+- Cache version/query string bumped so GitHub Pages clients receive the updated app.js.

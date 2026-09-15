@@ -1,0 +1,17 @@
+D.I.S.C.O Preliminary Program V7.5 ROUND 2
+
+추가 기능
+- 1차 예선 순위에서 2차 진출자 자동 추출
+- Mode 1: 각 서클 TOP 설정 인원 + 컷오프 동점 포함
+- Mode 2: 전체 합계 TOP 설정 인원 + 컷오프 동점 포함
+- 1차 순위 우선, 같은 순위는 A→B→C 순으로 정렬
+- 새 ORDER를 1번부터 부여
+- 10명씩 A조/B조/C조/D조... 자동 편성
+- 전환 전 PREVIEW
+- 1차 참가자/점수 기록 Supabase ARCHIVE 보관
+- 2차 예선 점수는 0점 상태로 새 점수표 생성
+
+필수
+1. Supabase SQL Editor 열기
+2. supabase_schema_v7_5_ROUND2_REQUIRED.sql 전체 실행
+3. 새 폴더 배포

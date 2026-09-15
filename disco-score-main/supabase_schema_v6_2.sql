@@ -1,0 +1,3 @@
+-- DPP v6.2
+-- SQL은 다시 안 해도 됩니다.
+-- 이번 버전은 기존 DB unique constraint(event_id, judge_circle, participant_order)에 맞춰 코드 저장 로직을 수정했습니다.

@@ -1,0 +1,18 @@
+D.I.S.C.O Preliminary Program V7.12 ROUND STATE MACHINE
+
+필수
+1. Supabase SQL Editor에서 supabase_schema_v7_12_REQUIRED.sql 전체 실행
+2. 성공 후 GitHub에 V7.12 폴더 전체 업로드
+3. 배포 페이지에서 강력 새로고침
+
+핵심 개선
+- 예선 상태를 round1_scoring / round2_editing / round2_active로 분리
+- 2차 명단 전용 dpp_round2_selection 테이블 추가
+- 자동 명단 생성 즉시 Supabase 저장
+- 삭제·추가·순서 변경 때마다 자동 저장
+- 관리자 재접속 시 편집 중 또는 확정 명단 자동 복원
+- 2차 참가자·점수 생성이 모두 성공한 마지막 단계에서만 round2_active 전환
+- 확정 도중 오류 발생 시 round2_editing 상태 유지
+- 상태 오류 복구 · 1차 예선으로 돌아가기 버튼 추가
+- 기존 ARCHIVE selected_round2 기록도 전용 테이블로 자동 이전
+- V7.10 전체 정보 초기화 시 dpp_round2_selection도 삭제
